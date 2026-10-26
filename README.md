@@ -253,6 +253,11 @@ Neither PSS/E nor the PERC1 or PERC2 user-defined model DLLs are included.
 Developed at CURENT, The University of Tennessee, Knoxville, in partnership
 with the Tennessee Valley Authority.
 
+Special thanks to:
+- Michael McAmis, Thomas Anderson, and Matthew Dolan (TVA)
+- Dr. Yilu Liu, Stephanie Thomasik (UTK/CURENT)
+- NERC LMWG
+
 ## Citing
 
 If you use PERC Studio in your work, please cite it using the metadata in
