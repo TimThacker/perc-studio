@@ -249,10 +249,6 @@ Neither PSS/E nor the PERC1 or PERC2 user-defined model DLLs are included.
 Developed at CURENT, The University of Tennessee, Knoxville, in partnership
 with the Tennessee Valley Authority.
 
-> This work was supported in part by [AWARD NUMBERS - maintainer to supply]. Any opinions, findings, and
-> conclusions or recommendations expressed in this material are those of the authors and do not necessarily
-> reflect the views of the sponsors.
-
 ## Citing
 
 If you use PERC Studio in your work, please cite it using the metadata in
@@ -260,6 +256,8 @@ If you use PERC Studio in your work, please cite it using the metadata in
 
 ## Contact
 
-Questions, bug reports and feature requests:
+Point of contact: Tim Thacker, <tthacke3@vols.utk.edu>.
+
+Bug reports and feature requests:
 [GitHub Issues](https://github.com/TimThacker/perc-studio/issues). For
 security issues, see [SECURITY.md](SECURITY.md).
