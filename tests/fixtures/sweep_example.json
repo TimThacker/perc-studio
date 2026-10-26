@@ -1,0 +1,23 @@
+{
+  "sweep_id": "example_sweep",
+  "base_case": {
+    "facility": {
+      "name": "Example Data Center",
+      "bus_number": 101,
+      "bus_name": "BUS_101",
+      "total_mw": 300.0,
+      "power_factor": 0.99,
+      "pct_it": 70.0,
+      "pct_cooling_vfd": 20.0,
+      "pct_cooling_motor": 5.0,
+      "pct_other": 5.0
+    }
+  },
+  "presets": ["ercot_nogrr282", "spp_hill"],
+  "scenarios": [
+    {"id": "sag_75_600ms", "fault_start_s": 0.5, "fault_duration_s": 0.6, "fault_voltage_pu": 0.75, "description": "sag probe"},
+    {"id": "ride_85_600ms", "fault_start_s": 0.5, "fault_duration_s": 0.6, "fault_voltage_pu": 0.85, "description": "ride-through probe"}
+  ],
+  "runner": "mock",
+  "block": "it"
+}

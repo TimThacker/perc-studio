@@ -1,0 +1,67 @@
+[project]
+name = "perc-studio"
+dynamic = ["version"]
+description = "PERC Studio: desktop tool for PSS/E dynamic load model generation."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Tim Thacker" }
+]
+requires-python = ">=3.13"
+keywords = ["PSS/E", "PERC1", "PERC2", "load model", "data center", "ride-through", "power systems"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "PySide6>=6.8.0",
+    "plotly>=5.24.0",
+    "click>=8.1",
+    "pyyaml>=6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/TimThacker/perc-studio"
+Issues = "https://github.com/TimThacker/perc-studio/issues"
+Documentation = "https://github.com/TimThacker/perc-studio/tree/main/docs"
+Changelog = "https://github.com/TimThacker/perc-studio/blob/main/CHANGELOG.md"
+
+[project.scripts]
+perc-studio = "app.launcher:main"
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["main"]
+
+[tool.setuptools.dynamic]
+version = { attr = "app.build_info.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["app*", "ui*", "editor*", "preview*", "export*", "presets*", "psse*", "dev*", "load_models*", "blackbox*"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.3",
+]
+# Release build: `uv run --group packaging python packaging/build_release.py`
+packaging = [
+    "pyinstaller>=6.11",
+    "pillow>=11.0",
+]
+
+[tool.ruff]
+target-version = "py313"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

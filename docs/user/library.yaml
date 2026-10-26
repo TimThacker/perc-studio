@@ -1,0 +1,50 @@
+# The contents of the app's Documentation tab (ui.DocumentationPanel).
+#
+# Paths are relative to this file. docs/user/ and docs/black_box/ ship with
+# the app; a group marked `source_only: true` lists contributor documents that
+# exist only in a source checkout, and the app shows only the ones present.
+# `app:` pages are generated in-app. `presets: true`
+# expands to one page per ride-through preset (presets/<id>.md).
+groups:
+  - title: Using the app
+    pages:
+      - {title: Getting started, path: getting_started.md}
+      - {title: PERC1 quick reference, app: reference}
+      - {title: Generic parameter tiers, path: parameter_tiers.md}
+  - title: Load models
+    pages:
+      - {title: Model overview and comparison, path: model_overview.md}
+      - {title: PERC1 DLL validation, path: model_perc1_dll.md}
+      - {title: PERC1 standard validation, path: model_perc1_standard.md}
+      - {title: PERC2 standard validation, path: model_perc2_standard.md}
+      - {title: PERC2 DLL v2.3 validation, path: model_perc2_dll.md}
+  - title: Model reference
+    pages:
+      - {title: PERC1 and PERC2 model reference, path: model_reference.md}
+      - {title: Model behavior and limitations, path: model_behavior.md}
+  - title: Black-box validation
+    pages:
+      - {title: Black-box validation guide, path: ../black_box/BLACK_BOX_VALIDATION.md}
+      - {title: Black-box search limits, path: ../black_box/BINARY_SEARCH_LIMITS.md}
+  - title: Ride-through presets
+    pages:
+      - {title: Preset library overview, path: presets/README.md}
+      - {presets: true}
+  - title: Roadmap
+    pages:
+      - {title: Under development and future work, path: roadmap.md}
+  - title: About
+    pages:
+      - {title: About, version and license, app: about}
+  - title: Developers
+    source_only: true
+    pages:
+      - {title: Developer README, path: ../../README.md}
+      - {title: PERC1 model deep-dive, path: ../developer/PERC1_MODEL.md}
+      - {title: PERC2 model deep-dive, path: ../developer/PERC2_MODEL.md}
+      - {title: PERC2 DLL v2.3 deep-dive, path: ../developer/PERC2_DLL_MODEL.md}
+      - {title: Architecture, path: ../developer/ARCHITECTURE.md}
+      - {title: Adding a ride-through preset, path: ../developer/ADDING_A_PRESET.md}
+      - {title: Adding a load model, path: ../developer/ADDING_A_LOAD_MODEL.md}
+      - {title: perc-studio CLI, path: ../../src/dev/cli/README.md}
+      - {title: Building a release, path: ../../packaging/README.md}
