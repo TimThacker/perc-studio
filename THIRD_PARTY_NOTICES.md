@@ -8,9 +8,9 @@ the application.
 Component            Version   License
 -------------------  --------  -------------------------------------------
 Python               3.13      Python Software Foundation License
-Qt 6 (incl. Qt       6.11      GNU LGPL v3 (licenses/LGPL-3.0.txt,
+Qt 6 (incl. Qt       6.12      GNU LGPL v3 (licenses/LGPL-3.0.txt,
   WebEngine)                   licenses/GPL-3.0.txt)
-PySide6, Shiboken6   6.11      GNU LGPL v3
+PySide6, Shiboken6   6.12      GNU LGPL v3
 Chromium (inside     -         BSD-3-Clause and other permissive licenses;
   Qt WebEngine)                see https://doc.qt.io/qt-6/qtwebengine-licensing.html
 plotly (incl.        7.1       MIT
