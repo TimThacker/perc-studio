@@ -17,8 +17,8 @@ from preview.model import (
 from preview.page import (
     disturbance_figure,
     disturbance_header,
-    perc2_fired_points,
     power_figure,
+    voltage_cease_points,
     voltage_thresholds,
 )
 from preview.perc2 import (
@@ -124,9 +124,9 @@ def test_the_voltage_card_draws_each_cease_point_as_a_timer_bar():
     """A red bar per cease point, from the event start and as long as its delay, in place of full-width trip lines;
     no labels on the plot (the details are in each bar's hover), and the reconnect line stays."""
     result = build_preview("perc2_standard", _cons(), Event("voltage", 200 / 60, 0.5), preset=ERCOT)
-    fired = perc2_fired_points(result)
-    assert list(fired) == [(0.8, 0.5, "under")]  # VLC2: 0.5 pu is not below VLC4's 0.50
-    assert fired[(0.8, 0.5, "under")] == pytest.approx(1.008, abs=0.01)
+    fired = [p for p in voltage_cease_points(result) if p.fired_at is not None]
+    assert [(p.name, p.voltage, p.length) for p in fired] == [("VLC2", 0.8, 0.5)]  # 0.5 pu is not below VLC4's 0.50
+    assert fired[0].fired_at == pytest.approx(1.008, abs=0.01)
 
     fig = disturbance_figure(result)
     points = perc2_voltage_points(result.params)
@@ -148,5 +148,5 @@ def test_the_voltage_card_draws_each_cease_point_as_a_timer_bar():
 
 def test_a_ride_through_names_no_cease():
     result = build_preview("perc2_standard", _cons(), Event("voltage", 5 / 60, 0.3), preset=ERCOT)
-    assert not result.trips and perc2_fired_points(result) == {}
+    assert not result.trips and all(p.fired_at is None for p in voltage_cease_points(result))
     assert not any("Ceased the load" in (tr.hovertemplate or "") for tr in disturbance_figure(result).data)

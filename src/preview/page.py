@@ -19,19 +19,25 @@ from __future__ import annotations
 
 import json
 from html import escape
+from typing import NamedTuple
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from app import tokens as t
 from app.resources import resource_path
-from editor.model_ui import PERC2_MODEL_ID, uses_standard_names
+from editor.model_ui import PERC2_DLL_MODEL_ID, PERC2_MODEL_ID, uses_standard_names
 from load_models.base import NOMINAL_FREQUENCY_HZ
-from load_models.perc1_dll.cons import OVERFREQUENCY_TRIP_CONS, UNDERFREQUENCY_TRIP_CONS
+from load_models.perc1_dll.cons import (
+    OVERFREQUENCY_TRIP_CONS,
+    PERC1_FIXED_DEFAULTS,
+    UNDERFREQUENCY_TRIP_CONS,
+)
 from load_models.perc1_dll.simulation import (
     OVERVOLTAGE_STAGE_CONS,
     UNDERVOLTAGE_STAGE_CONS,
 )
+from load_models.perc2_dll.simulation import mc_active
 from load_models.perc2_standard.cons import long_time_point
 from presets.envelope import (
     envelope_bound,
@@ -113,8 +119,8 @@ def disturbance_figure(result: PreviewResult) -> go.Figure:
         points = sim["v_points"]
         trip_levels, reconnect = voltage_thresholds(result)
         top = max([v for _, v in points] + [lvl for _n, lvl in trip_levels] + [1.0, reconnect[1]]) + 0.15
-        if _perc2(result):
-            _perc2_timer_bars(fig, result)
+        if _perc2(result) or _dll(result):
+            _timer_bars(fig, result)
         else:
             for _name, level in trip_levels:
                 fig.add_hline(y=level, line_dash="dash", line_color=t.TRIP, line_width=1.2)
@@ -135,38 +141,81 @@ def disturbance_figure(result: PreviewResult) -> go.Figure:
     return _base_layout(fig)
 
 
-def perc2_fired_points(result: PreviewResult) -> dict[tuple[float, float, str], float]:
-    """{(voltage, delay, "under"|"over"): first cease time} for each PERC2 voltage cease point that ceased the load in
-    this event, keyed like `perc2_voltage_points` (which merges repeated points) rather than by check name."""
+class CeasePoint(NamedTuple):
+    """One voltage trip or cease point as the timer bars draw it."""
+
+    voltage: float
+    length: float  # the bar: the delay, plus CMTDELAY for a DLL stage
+    side: str  # "under" | "over"
+    name: str
+    delay: str  # the delay as the hover states it, with its CON names
+    fired_at: float | None  # when it first tripped or ceased the load in this event; None if it did not
+    verb: str  # "Ceased" or "Tripped"
+
+
+def voltage_cease_points(result: PreviewResult) -> list[CeasePoint]:
+    """The voltage trip and cease points of PERC2 (its active cease points) or a DLL model (its 4 stages per direction,
+    plus the PERC2 DLL's momentary cessation when it is on). Repeated points (presets pad the tables) appear once."""
     p = result.params
-    fired: dict[tuple[float, float, str], float] = {}
-    for event in result.sim.get("trip_events", []):
-        name = event["check"]
-        if name in ("VLM", "VHM"):
-            key = (p["VLcease" if name == "VLM" else "VHcease"], max(p["Tcease"], 0.0), "under" if name == "VLM" else "over")
-        elif name[:3] in ("VLC", "VHC") and name[3:].isdigit():
-            prefix = name[1]
-            key = (p[name], max(p[f"TV{prefix}C{long_time_point(int(name[3:]))}"], 0.0), "under" if prefix == "L" else "over")
-        else:
-            continue  # a frequency cease
-        fired.setdefault(key, event["time"])
-    return fired
+    events = result.sim.get("trip_events", [])
+    if _perc2(result):
+        fired: dict[tuple[float, float, str], float] = {}
+        for event in events:
+            name = event["check"]
+            if name in ("VLM", "VHM"):
+                key = (p["VLcease" if name == "VLM" else "VHcease"], max(p["Tcease"], 0.0),
+                       "under" if name == "VLM" else "over")
+            elif name[:3] in ("VLC", "VHC") and name[3:].isdigit():
+                prefix = name[1]
+                key = (p[name], max(p[f"TV{prefix}C{long_time_point(int(name[3:]))}"], 0.0),
+                       "under" if prefix == "L" else "over")
+            else:
+                continue  # a frequency cease
+            fired.setdefault(key, event["time"])
+        return [CeasePoint(v, d, side, name, f"{fmt_seconds(d)} ({dname})", fired.get((v, d, side)), "Ceased")
+                for v, d, side, name, dname in perc2_voltage_points(p)]
+    if not _dll(result):
+        return []
+    # In the simulators' order, so a trip event's "stage" indexes it.
+    commit = max(float(p.get("CMTDELAY", PERC1_FIXED_DEFAULTS["CMTDELAY"])), 0.0)
+    stages = []
+    for side, pairs in (("under", UNDERVOLTAGE_STAGE_CONS), ("over", OVERVOLTAGE_STAGE_CONS)):
+        for vn, dn in pairs:
+            d = max(float(p[dn]), 0.0)
+            delay = f"{fmt_seconds(d)} ({dn})" + (f" + {fmt_seconds(commit)} (CMTDELAY)" if commit > 0 else "")
+            stages.append((float(p[vn]), d + commit, side, vn, delay, "Tripped"))
+    if result.model_id == PERC2_DLL_MODEL_ID and mc_active(p):
+        stages += [(float(p["VLBLK"]), 0.0, "under", "VLBLK", "no delay (momentary cessation)", "Ceased"),
+                   (float(p["VUBLK"]), 0.0, "over", "VUBLK", "no delay (momentary cessation)", "Ceased")]
+    first = {}
+    for event in events:
+        first.setdefault(event["stage"], event["time"])
+    points: dict[tuple[float, float, str], CeasePoint] = {}
+    for i, (v, length, side, name, delay, verb) in enumerate(stages):
+        if side == "under" and v <= 0:
+            continue  # nothing is below 0 pu: an unused stage
+        key = (v, length, side)
+        when = first.get(i)
+        if key in points:
+            if when is not None and points[key].fired_at is None:
+                points[key] = points[key]._replace(fired_at=when)
+            continue
+        points[key] = CeasePoint(v, length, side, name, delay, when, verb)
+    return list(points.values())
 
 
-def _perc2_timer_bars(fig: go.Figure, result: PreviewResult) -> None:
-    """PERC2's voltage cease points as timer bars: each a red bar at its level, from the event start and as long as its
+def _timer_bars(fig: go.Figure, result: PreviewResult) -> None:
+    """The voltage cease points as timer bars: each a red bar at its level, from the event start and as long as its
     delay, so the trace shows whose timer runs out first. The point that ceased the load is solid, the points this
     event's voltage arms are half strength and the rest faint; hovering a bar gives its details."""
     start, level = result.sim["fault_start"], result.event.voltage_pu
-    fired = perc2_fired_points(result)
-    for v, d, side, name, dname in perc2_voltage_points(result.params):
-        when = fired.get((v, d, side))
+    for v, d, side, name, delay, when, verb in voltage_cease_points(result):
         armed = level < v if side == "under" else level > v
         opacity = 1.0 if when is not None else 0.55 if armed else 0.3
-        status = (f"Ceased the load at {fmt_seconds(when)}" if when is not None
+        status = (f"{verb} the load at {fmt_seconds(when)}" if when is not None
                   else "Armed by this event" if armed else "Not reached by this event")
         hover = (f"<b>{name}</b> trip threshold<br>{'Below' if side == 'under' else 'Above'} {v:.2f} pu "
-                 f"for {fmt_seconds(d)} ({dname})<br>{status}<extra></extra>")
+                 f"for {delay}<br>{status}<extra></extra>")
         if d > 0:
             # Points along the whole bar, so hovering anywhere on it shows the details.
             xs = [start + d * i / 24 for i in range(25)]
@@ -180,13 +229,12 @@ def _perc2_timer_bars(fig: go.Figure, result: PreviewResult) -> None:
 def voltage_thresholds(result: PreviewResult) -> tuple[list[tuple[str, float]], tuple[str, float]]:
     """([(name, level)] of the trip thresholds drawn, (name, level) of the reconnect threshold)."""
     p = result.params
-    if _dll(result):
-        return [("VDUA", p["VDUA"]), ("VDPA", p["VDPA"])], ("VRPA", p["VRPA"])
-    if _perc2(result):
+    if _dll(result) or _perc2(result):
         levels: dict[float, str] = {}
-        for v, _d, _side, name, _dname in perc2_voltage_points(p):
-            levels.setdefault(v, name)
-        return [(name, v) for v, name in levels.items()], ("VLrecon", max(p["VLrecon"], p["VLcease"]))
+        for point in voltage_cease_points(result):
+            levels.setdefault(point.voltage, point.name)
+        reconnect = ("VRPA", p["VRPA"]) if _dll(result) else ("VLrecon", max(p["VLrecon"], p["VLcease"]))
+        return [(name, v) for v, name in levels.items()], reconnect
     return [("Vcease", p["Vcease"])], ("Vrecon", max(p["Vrecon"], p["Vcease"]))
 
 
@@ -216,7 +264,7 @@ def disturbance_header(result: PreviewResult) -> tuple[str, str]:
             text = f"Droop deadband {low:.2f}–{high:.2f} Hz · no frequency trip in this model"
         return "Frequency at the load bus", f'<span>{_swatch(t.DEADBAND)}{escape(text)}</span>'
     trips, (rname, rlevel) = voltage_thresholds(result)
-    if _perc2(result):
+    if _perc2(result) or _dll(result):
         return "Voltage at the load bus", (
             f'<span>{_swatch(t.TRIP, bar=True)}Trip thresholds</span>'
             f'<span>{_swatch(t.RECONNECT, dash=True)}Reconnect {rname} {rlevel:.2f}</span>')
