@@ -44,7 +44,7 @@ class RunSummary:
     @property
     def when(self) -> datetime | None:
         try:
-            return datetime.strptime(self.generated, "%Y-%m-%d %H:%M:%S")  # noqa: DTZ007 - local time, as written
+            return datetime.strptime(self.generated, "%Y-%m-%d %H:%M:%S")  # local time, as written
         except ValueError:
             return None
 
