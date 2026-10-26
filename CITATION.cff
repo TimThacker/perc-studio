@@ -1,0 +1,31 @@
+# Copyright (c) 2026 Tim Thacker; CURENT, The University of Tennessee, Knoxville; and the Tennessee Valley Authority
+cff-version: 1.2.0
+message: "If you use PERC Studio in your work, please cite it as below."
+title: "PERC Studio"
+type: software
+version: 1.2.0
+license: MIT
+repository-code: "https://github.com/TimThacker/perc-studio"
+authors:
+  - family-names: Thacker
+    given-names: Tim
+    affiliation: "CURENT, The University of Tennessee, Knoxville"
+keywords:
+  - PSS/E
+  - PERC1
+  - PERC2
+  - load modeling
+  - data centers
+  - ride-through
+  - power systems
+abstract: >-
+  Large Electronic Loads (LELs), such as data centers, are rapidly becoming a dominant share of bulk power system
+  load, with ride-through and reconnection behavior unlike conventional motor-driven load. NERC's May 2026 Level 3
+  Alert directs Transmission Planners and Planning Coordinators to use the PERC1 model, or an equivalent-or-better
+  model, as the baseline for large load modeling, but these models' many parameters and cease/reconnect options make
+  consistent parameterization difficult without facility-level power electronics data. PERC Studio is a desktop
+  studio that accelerates data center modeling for transmission planning engineers. From a facility's ride-through
+  standard and equipment type, or full field-measured CON values for as-built facilities, it produces a ready-to-use
+  PSS/E .dyr file and an HTML report documenting assumptions and plotting simulated ride-through performance live
+  against a library of independently sourced ride-through presets (three generic tiers plus grid-operator standards
+  such as ERCOT NOGRR282, MISO, SPP HILL, and NERC PRC-029-1 and the LLWG SAR proposal).

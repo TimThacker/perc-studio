@@ -1,0 +1,6 @@
+# Windows batch files must keep CRLF line endings on every checkout.
+*.cmd text eol=crlf
+
+# Binary PSS/E channel output files and their test truth files must never be touched by line-ending conversion.
+*.outx binary
+*.gz binary

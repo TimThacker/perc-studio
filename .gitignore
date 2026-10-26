@@ -1,0 +1,21 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# perc-studio CLI output artifacts (cases/results/reports from `perc-studio sweep`
+# and friends) - see src/dev/cli/README.md
+/output/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+
+# Scratch output of black-box validation runs (perc-studio blackbox --out out/...); keep run results out of git.
+/out/
