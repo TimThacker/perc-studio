@@ -138,9 +138,13 @@ The app bar at the top of the window switches between:
 
 ## Install
 
-**Windows installer or portable ZIP.** Download them from the
-[Releases](https://github.com/TimThacker/perc-studio/releases) page. Both are
-the full app and need no Python.
+**Windows portable ZIP.** Download it from the
+[Releases](https://github.com/TimThacker/perc-studio/releases) page, extract it
+to a folder you keep, and run **Create Desktop Shortcut.cmd** once. It is the
+full desktop app and needs no Python. (An installer, `PERC-Studio-<version>-Setup.exe`,
+is attached to a release when one is built.) Releases are not yet code-signed,
+so Windows SmartScreen asks for confirmation on first run: click **More info**,
+then **Run anyway**.
 
 **From source**, with [uv](https://docs.astral.sh/uv/):
 
