@@ -5,6 +5,27 @@ section of each release is its release note for the production edition;
 **Developer** lists changes that only affect the development edition and the
 build.
 
+## 1.2.1 - 2026-10-26
+
+### User-facing
+
+- **Voltage card: timer bars.** On the live preview's Voltage at the load bus card (and the saved report, which shares
+  it), each voltage trip or cease point is now a short red bar at its level, starting with the event and as long as
+  its delay, in place of a dashed line across the whole plot. The point that tripped or ceased the load is solid, the
+  points the event reaches are half strength and the rest faint; hover a bar for its CONs, delay and what it did in
+  this event. The legend reads "Trip thresholds", and the green dashed reconnect line is unchanged.
+- **PERC1 DLL and PERC2 DLL: every trip stage on the voltage card.** All 4 stages per direction (`VDPA`-`VDPA3`,
+  `VDUA`-`VDUA3`) are drawn, each as long as its delay plus `CMTDELAY`; before, only stage 1 (`VDPA`, `VDUA`) was.
+  The PERC2 DLL also shows `VLBLK`/`VUBLK` when momentary cessation is on. Repeated stages (presets pad the tables)
+  appear once.
+- Qt for Python (PySide6) 6.12. The only visible change is slightly less left padding on the text in numeric fields.
+
+### Developer
+
+- `preview.page.voltage_cease_points()` lists the drawn points for PERC2, the PERC1 DLL and the PERC2 DLL, matched to
+  the simulator's `trip_events`.
+- Tooling updates: ruff 0.17.2, `actions/checkout` 7, `astral-sh/setup-uv` 7.
+
 ## 1.2.0 - 2026-10-26 (open-source release)
 
 ### Open-source release

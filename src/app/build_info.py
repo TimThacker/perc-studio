@@ -6,6 +6,6 @@ copy it bundles; it is empty in a source checkout.
 
 from __future__ import annotations
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 
 BUILD_COMMIT = ""
