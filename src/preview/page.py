@@ -32,6 +32,7 @@ from load_models.perc1_dll.simulation import (
     OVERVOLTAGE_STAGE_CONS,
     UNDERVOLTAGE_STAGE_CONS,
 )
+from load_models.perc2_standard.cons import long_time_point
 from presets.envelope import (
     envelope_bound,
     envelope_segments_from_steps,
@@ -112,8 +113,11 @@ def disturbance_figure(result: PreviewResult) -> go.Figure:
         points = sim["v_points"]
         trip_levels, reconnect = voltage_thresholds(result)
         top = max([v for _, v in points] + [lvl for _n, lvl in trip_levels] + [1.0, reconnect[1]]) + 0.15
-        for _name, level in trip_levels:
-            fig.add_hline(y=level, line_dash="dash", line_color=t.TRIP, line_width=1.2)
+        if _perc2(result):
+            _perc2_timer_bars(fig, result)
+        else:
+            for _name, level in trip_levels:
+                fig.add_hline(y=level, line_dash="dash", line_color=t.TRIP, line_width=1.2)
         fig.add_hline(y=reconnect[1], line_dash="dash", line_color=t.RECONNECT, line_width=1.2)
         fig.add_trace(go.Scatter(x=[x for x, _ in points], y=[v for _, v in points], mode="lines",
                                  line={"color": t.PLOT_VOLTAGE, "width": 2.2}, name="Voltage",
@@ -129,6 +133,48 @@ def disturbance_figure(result: PreviewResult) -> go.Figure:
                                showarrow=False, font={"size": 10, "color": t.TEXT_MUTED})
     _event_marks(fig, result)
     return _base_layout(fig)
+
+
+def perc2_fired_points(result: PreviewResult) -> dict[tuple[float, float, str], float]:
+    """{(voltage, delay, "under"|"over"): first cease time} for each PERC2 voltage cease point that ceased the load in
+    this event, keyed like `perc2_voltage_points` (which merges repeated points) rather than by check name."""
+    p = result.params
+    fired: dict[tuple[float, float, str], float] = {}
+    for event in result.sim.get("trip_events", []):
+        name = event["check"]
+        if name in ("VLM", "VHM"):
+            key = (p["VLcease" if name == "VLM" else "VHcease"], max(p["Tcease"], 0.0), "under" if name == "VLM" else "over")
+        elif name[:3] in ("VLC", "VHC") and name[3:].isdigit():
+            prefix = name[1]
+            key = (p[name], max(p[f"TV{prefix}C{long_time_point(int(name[3:]))}"], 0.0), "under" if prefix == "L" else "over")
+        else:
+            continue  # a frequency cease
+        fired.setdefault(key, event["time"])
+    return fired
+
+
+def _perc2_timer_bars(fig: go.Figure, result: PreviewResult) -> None:
+    """PERC2's voltage cease points as timer bars: each a red bar at its level, from the event start and as long as its
+    delay, so the trace shows whose timer runs out first. The point that ceased the load is solid, the points this
+    event's voltage arms are half strength and the rest faint; hovering a bar gives its details."""
+    start, level = result.sim["fault_start"], result.event.voltage_pu
+    fired = perc2_fired_points(result)
+    for v, d, side, name, dname in perc2_voltage_points(result.params):
+        when = fired.get((v, d, side))
+        armed = level < v if side == "under" else level > v
+        opacity = 1.0 if when is not None else 0.55 if armed else 0.3
+        status = (f"Ceased the load at {fmt_seconds(when)}" if when is not None
+                  else "Armed by this event" if armed else "Not reached by this event")
+        hover = (f"<b>{name}</b> trip threshold<br>{'Below' if side == 'under' else 'Above'} {v:.2f} pu "
+                 f"for {fmt_seconds(d)} ({dname})<br>{status}<extra></extra>")
+        if d > 0:
+            # Points along the whole bar, so hovering anywhere on it shows the details.
+            xs = [start + d * i / 24 for i in range(25)]
+            fig.add_trace(go.Scatter(x=xs, y=[v] * len(xs), mode="lines", opacity=opacity, showlegend=False,
+                                     line={"color": t.TRIP, "width": 4}, hovertemplate=hover))
+        else:  # no delay: a mark at the event start
+            fig.add_trace(go.Scatter(x=[start], y=[v], mode="markers", opacity=opacity, showlegend=False,
+                                     marker={"color": t.TRIP, "size": 6, "symbol": "square"}, hovertemplate=hover))
 
 
 def voltage_thresholds(result: PreviewResult) -> tuple[list[tuple[str, float]], tuple[str, float]]:
@@ -151,8 +197,11 @@ def frequency_band(result: PreviewResult) -> tuple[float, float]:
     return NOMINAL_FREQUENCY_HZ * (1 + p["dbfl"]), NOMINAL_FREQUENCY_HZ * (1 + p["dbfh"])
 
 
-def _swatch(color: str, dash: bool = False) -> str:
-    style = f"border-top:2px dashed {color};" if dash else f"background:{color};height:10px;"
+def _swatch(color: str, dash: bool = False, bar: bool = False) -> str:
+    if bar:
+        style = f"background:{color};height:4px;border-radius:2px;"
+    else:
+        style = f"border-top:2px dashed {color};" if dash else f"background:{color};height:10px;"
     return f'<i class="sw" style="{style}"></i>'
 
 
@@ -167,6 +216,10 @@ def disturbance_header(result: PreviewResult) -> tuple[str, str]:
             text = f"Droop deadband {low:.2f}–{high:.2f} Hz · no frequency trip in this model"
         return "Frequency at the load bus", f'<span>{_swatch(t.DEADBAND)}{escape(text)}</span>'
     trips, (rname, rlevel) = voltage_thresholds(result)
+    if _perc2(result):
+        return "Voltage at the load bus", (
+            f'<span>{_swatch(t.TRIP, bar=True)}Trip thresholds</span>'
+            f'<span>{_swatch(t.RECONNECT, dash=True)}Reconnect {rname} {rlevel:.2f}</span>')
     trip_text = " · ".join(f"{name} {level:.2f}" for name, level in trips)
     return "Voltage at the load bus", (
         f'<span>{_swatch(t.TRIP, dash=True)}Trip {escape(trip_text)}</span>'
