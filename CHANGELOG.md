@@ -5,7 +5,7 @@ section of each release is its release note for the production edition;
 **Developer** lists changes that only affect the development edition and the
 build.
 
-## 1.2.0 - unreleased (open-source release)
+## 1.2.0 - 2026-10-26 (open-source release)
 
 ### Open-source release
 
