@@ -5,16 +5,23 @@ import json
 import pytest
 
 from app import tokens as t
-from editor.model_ui import DLL_MODEL_ID, STANDARD_MODEL_ID, get_ui_spec
+from editor.model_ui import (
+    DLL_MODEL_ID,
+    PERC2_DLL_MODEL_ID,
+    STANDARD_MODEL_ID,
+    get_ui_spec,
+)
 from presets.ridethrough import RIDE_THROUGH_PRESETS
 from preview.model import Event, build_preview
 from preview.page import (
     PLOT_IDS,
+    disturbance_figure,
     disturbance_header,
     live_update_js,
     power_figure,
     render_page,
     standard_figure,
+    voltage_cease_points,
 )
 
 ITIC = RIDE_THROUGH_PRESETS["standard_itic"]
@@ -50,8 +57,46 @@ def test_live_update_reacts_every_plot_and_the_text():
 def test_the_voltage_card_names_its_thresholds():
     title, legend = disturbance_header(result())
     assert title == "Voltage at the load bus"
-    assert "Trip VDUA 1.10 · VDPA 0.70" in legend
+    assert "Trip thresholds" in legend and "VDPA" not in legend
     assert "Reconnect VRPA 0.90" in legend
+
+
+ERCOT = RIDE_THROUGH_PRESETS["ercot_nogrr282"]
+
+
+@pytest.mark.parametrize("model_id", [DLL_MODEL_ID, PERC2_DLL_MODEL_ID])
+def test_the_dll_voltage_card_draws_every_stage_as_a_timer_bar(model_id):
+    """All 4 stages per direction, repeats merged, each a bar as long as its delay plus CMTDELAY; the stage that
+    tripped the load says so in its hover, and only the reconnect line is full width."""
+    params = {**get_ui_spec(model_id).preset_params(ERCOT, "it"), "CMTDELAY": 0.05}
+    res = build_preview(model_id, params, Event("voltage", 200 / 60, 0.5), preset=ERCOT)
+    points = voltage_cease_points(res)
+    assert [p.name for p in points] == ["VDPA", "VDPA1", "VDPA2", "VDPA3", "VDUA", "VDUA1"]
+    assert [p.name for p in points if p.fired_at is not None] == ["VDPA1"]  # 0.5 pu is not below VDPA2's 0.50
+
+    fig = disturbance_figure(res)
+    bars = [tr for tr in fig.data if tr.name != "Voltage"]
+    assert len(bars) == len(points)
+    start = res.sim["fault_start"]
+    for bar, p in zip(bars, points, strict=True):
+        assert set(bar.y) == {p.voltage} and bar.x[0] == start
+        assert bar.x[-1] == pytest.approx(start + params[p.name.replace("VDPA", "DMA").replace("VDUA", "TDUA")] + 0.05)
+    hlines = [s for s in fig.layout.shapes if s.y0 == s.y1 and s.xref != "x"]
+    assert [round(s.y0, 2) for s in hlines] == [round(params["VRPA"], 2)]
+    hovers = [bar.hovertemplate for bar in bars]
+    assert sum("Tripped the load at" in h for h in hovers) == 1
+    assert any("<b>VDPA1</b>" in h and "Below 0.80 pu for 0.50 s (DMA1) + 0.05 s (CMTDELAY)" in h for h in hovers)
+
+
+def test_perc2_dll_momentary_cessation_has_its_own_marks():
+    params = {**get_ui_spec(PERC2_DLL_MODEL_ID).preset_params(ITIC, "it"), "MCFLAG": 1}
+    res = build_preview(PERC2_DLL_MODEL_ID, params, Event("voltage", 200 / 60, 0.3), preset=ITIC)
+    vlblk = next(p for p in voltage_cease_points(res) if p.name == "VLBLK")
+    assert vlblk.length == 0 and vlblk.fired_at == pytest.approx(res.sim["trip_events"][0]["time"])
+    assert any("<b>VLBLK</b>" in (tr.hovertemplate or "") and "Ceased the load at" in tr.hovertemplate
+               for tr in disturbance_figure(res).data)
+    off = build_preview(PERC2_DLL_MODEL_ID, {**params, "MCFLAG": 0}, Event("voltage", 200 / 60, 0.3), preset=ITIC)
+    assert "VLBLK" not in [p.name for p in voltage_cease_points(off)]
 
 
 def test_the_frequency_card_shows_the_deadband():
