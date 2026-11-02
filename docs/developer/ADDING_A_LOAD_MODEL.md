@@ -100,13 +100,12 @@ A complete model small enough to read in one sitting: one undervoltage and one
 overvoltage trip point, no reconnect, so four CONs. It writes
 `IBUS 'USRLOD' 'ID' 'STPBL' 12 IT 0 4 1 1 0 CON(J) .. CON(J+3) /`, simulates the
 trip, and collapses a ride-through preset to its most demanding point per
-direction. Every file follows the layout above. The blocks are the real files in
-[`tests/fixtures/extra_models/step_trip/`](../../tests/fixtures/extra_models/step_trip/),
-the model the test suite registers for its end-to-end runs (case, export, mock
-run, sweep, CLI), and `tests/test_doc_example.py` fails if a block differs from
-its file. The hooks it leaves out (`simulate_frequency`, `matches_dyr`,
-`validate_cons`, `result_figure`) are optional; see the table at the top of
-this page.
+direction. Every file follows the layout above, and `tests/test_doc_example.py`
+writes these blocks to a package and checks them against the layout rules, so
+the example cannot drift from them. The hooks it leaves out
+(`simulate_frequency`, `matches_dyr`, `validate_cons`, `result_figure`) are
+optional; see the table at the top of this page. For a model that is fully
+built out, read [`perc1_standard/`](../../src/load_models/perc1_standard/).
 
 **`cons.py`**: names first, then defaults, then the display rows.
 
@@ -334,7 +333,12 @@ and runs the contract tests and the layout checks against it.
    fully-defaulted CONs, display fields that name real CONs, a `.dyr` record
    the registry can recognise, a parse round-trip, the simulator's response
    shape, preset encoding, and the package layout. You don't need to write new
-   tests for this.
+   tests for this. `tests/test_model_regression.py` also compares every
+   registered model with a golden file in `tests/golden/`, so it fails for a
+   new model until you record its baseline with
+   `UPDATE_GOLDEN=1 uv run pytest tests/test_model_regression.py`. Review the
+   new `tests/golden/<model_id>.json` before committing it. The same command is
+   how you accept a deliberate change to an existing model's behavior.
 5. **Exercise it end to end** with the CLI:
 
    ```bash

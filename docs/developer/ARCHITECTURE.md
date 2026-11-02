@@ -136,12 +136,11 @@ perc-studio/
     ├── conftest.py
     ├── fixtures/
     │   ├── sweep_example.json
-    │   ├── step_trip_model.py   # imports the test-only step-trip model as load_models.step_trip
-    │   ├── extra_models/step_trip/  # that model, in the package layout (the ADDING_A_LOAD_MODEL.md example)
     │   └── multistage_trip/     # PSS/E-validated .dyr pair (see below)
     ├── test_<module>.py         # one file per src/ module it covers
     ├── test_layering.py         # the package import direction (see "Package layering")
     ├── test_load_models.py      # contract tests run against every registered model
+    ├── test_model_regression.py # every model against its golden file in tests/golden/ (see ADDING_A_LOAD_MODEL.md)
     ├── test_cli.py
     └── test_multistage_trip_regression.py
 ```

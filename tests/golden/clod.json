@@ -1,0 +1,56 @@
+{
+ "con_names": [
+  "PC_LM",
+  "PC_SM",
+  "PC_TX",
+  "PC_DL",
+  "PC_CP"
+ ],
+ "default_cons": {
+  "PC_LM": "35.0",
+  "PC_SM": "35.0",
+  "PC_TX": "5.0",
+  "PC_DL": "5.0",
+  "PC_CP": "10.0"
+ },
+ "display_fields": [
+  [
+   "PC_LM",
+   "PC_LM \u2014 large motor share (big constant-speed motors: chillers, large pumps)"
+  ],
+  [
+   "PC_SM",
+   "PC_SM \u2014 small motor share (small fans/pumps, fractional-hp motors)"
+  ],
+  [
+   "PC_TX",
+   "PC_TX \u2014 transformer exciting current share (nearby transformer magnetizing current)"
+  ],
+  [
+   "PC_DL",
+   "PC_DL \u2014 discharge lighting share (fluorescent/HID lighting)"
+  ],
+  [
+   "PC_CP",
+   "PC_CP \u2014 constant power share (electronically regulated load)"
+  ]
+ ],
+ "dyr_defaults": {
+  "bus": [
+   "   1234, 'CLODBL', '1', 35.00, 35.00, 5.00, 5.00, 10.00  /"
+  ],
+  "owner": [
+   "   1234, 'CLODOW', '1', 35.00, 35.00, 5.00, 5.00, 10.00  /"
+  ],
+  "all": [
+   "   0, 'CLODAL', '1', 35.00, 35.00, 5.00, 5.00, 10.00  /"
+  ]
+ },
+ "cons": {
+  "defaults": "43217abe5cd09f5a"
+ },
+ "dyr": {
+  "defaults": "e49eba3a0130d3a5"
+ },
+ "simulations": {}
+}

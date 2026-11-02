@@ -1,5 +1,5 @@
 """Contract tests every registered load model must pass, plus an end-to-end
-run of the developer loop on a non-PERC1 model.
+run of the developer loop on every model that can mock-run and encode presets.
 
 A newly added model is picked up here automatically through
 `load_models.LOAD_MODELS` - no new test code is needed to check that it is
@@ -10,7 +10,6 @@ import importlib
 import json
 
 import pytest
-from fixtures.step_trip_model import MODEL as EXAMPLE_MODEL
 
 from dev.cli.main import cli
 from dev.validation.case_model import (
@@ -33,8 +32,10 @@ from load_models import (
 )
 from psse.runner import FaultScenario, MockPsseRunner
 
-ALL_MODELS = [*LOAD_MODELS.values(), EXAMPLE_MODEL]
+ALL_MODELS = list(LOAD_MODELS.values())
 _ids = [model.id for model in ALL_MODELS]
+# The models the developer loop (case from a preset, export, mock run, sweep, CLI) applies to.
+RUNNABLE = [m for m in ALL_MODELS if m.can_run_mock and m.supports_presets]
 
 FACILITY = FacilityInfo(name="Test", bus_number=101, bus_name="BUS_101", use_case="AI Training",
                         use_case_pct=100, total_mw=300.0, power_factor=0.99)
@@ -59,8 +60,7 @@ def test_display_fields_name_real_cons(model):
 
 
 @pytest.mark.parametrize("model", ALL_MODELS, ids=_ids)
-def test_dyr_record_names_the_model(model, monkeypatch):
-    monkeypatch.setitem(LOAD_MODELS, model.id, model)
+def test_dyr_record_names_the_model(model):
     text = model.build_dyr_record(101, "1", model.default_cons)
     assert f"'{model.dyr_model_name}'" in text
     assert find_model_for_dyr(text) is model
@@ -148,38 +148,45 @@ def test_unknown_model_lists_registered_ids():
         get_load_model("nope")
 
 
-# --- The developer loop on a non-PERC1 model -------------------------------
+# --- The developer loop on every model that can mock-run -------------------
 
 
-def test_defaults_case_exports_validates_and_overrides(example_model):
-    case = case_from_model_defaults(example_model.id, facility=FACILITY, load_composition=LOAD)
+@pytest.mark.parametrize("model", RUNNABLE, ids=lambda m: m.id)
+def test_defaults_case_exports_validates_and_overrides(model):
+    case = case_from_model_defaults(model.id, facility=FACILITY, load_composition=LOAD)
     assert schema_problems(case) == []
-    assert "'STPBL'" in block_dyr_record(case, "it", "1")
+    assert f"'{model.dyr_model_name}'" in block_dyr_record(case, "it", "1")
 
-    case = case_with_overrides(case, "it", {"VUV": 0.5})
-    assert case.it_block.cons["VUV"] == 0.5
-    with pytest.raises(ValueError, match="VDPA"):
-        case_with_overrides(case, "it", {"VDPA": 0.5})  # a PERC1 CON, not this model's
+    name = model.con_names[0]
+    case = case_with_overrides(case, "it", {name: model.default_cons[name] + 0.25})
+    assert case.it_block.cons[name] == model.default_cons[name] + 0.25
+    with pytest.raises(ValueError, match="NO_SUCH_CON"):
+        case_with_overrides(case, "it", {"NO_SUCH_CON": 0.5})
 
     assert from_json(to_json(case)) == case
 
 
-def test_mock_runner_dispatches_to_the_records_own_model(example_model):
+@pytest.mark.parametrize("model", RUNNABLE, ids=lambda m: m.id)
+def test_mock_runner_dispatches_to_the_records_own_model(model):
     case = case_from_preset("ercot_nogrr282", facility=FACILITY, load_composition=LOAD,
-                            model_id=example_model.id, include_vfd=False, include_motor=False)
+                            model_id=model.id, include_vfd=False, include_motor=False)
     dyr_text = block_dyr_record(case, "it", "1")
+    runner = MockPsseRunner()
     deep_long_sag = FaultScenario(id="deep", fault_start_s=0.5, fault_duration_s=3.0, fault_voltage_pu=0.5)
+    shallow_sag = FaultScenario(id="shallow", fault_start_s=0.5, fault_duration_s=0.1, fault_voltage_pu=0.95)
 
-    result = MockPsseRunner().run(None, dyr_text, deep_long_sag, block_name="it", case_id=case.case_id)
+    deep = runner.run(None, dyr_text, deep_long_sag, block_name="it", case_id=case.case_id)
+    shallow = runner.run(None, dyr_text, shallow_sag, block_name="it", case_id=case.case_id)
 
-    assert result.tripped
-    assert result.metadata["model_id"] == example_model.id
+    assert deep.tripped and not shallow.tripped
+    assert deep.metadata["model_id"] == model.id
 
 
-def test_sweep_runs_a_non_perc1_model_end_to_end(example_model, tmp_path):
+@pytest.mark.parametrize("model", RUNNABLE, ids=lambda m: m.id)
+def test_sweep_runs_end_to_end(model, tmp_path):
     spec = {
-        "sweep_id": "example_model_sweep",
-        "model": example_model.id,
+        "sweep_id": "model_sweep",
+        "model": model.id,
         "presets": ["ercot_nogrr282"],
         "scenarios": [
             {"id": "deep_long_sag", "fault_start_s": 0.5, "fault_duration_s": 3.0, "fault_voltage_pu": 0.5},
@@ -191,7 +198,7 @@ def test_sweep_runs_a_non_perc1_model_end_to_end(example_model, tmp_path):
     assert summary["total_cases"] == 2
     assert summary["all_passed"], summary
     case_files = [p for p in (tmp_path / "cases").iterdir() if p.suffix == ".json"]
-    assert json.loads(case_files[0].read_text())["it_block"]["model_id"] == example_model.id
+    assert json.loads(case_files[0].read_text())["it_block"]["model_id"] == model.id
 
 
 def test_sweep_rejects_a_model_that_cannot_encode_presets(tmp_path):
@@ -200,26 +207,29 @@ def test_sweep_rejects_a_model_that_cannot_encode_presets(tmp_path):
         run_sweep(spec, str(tmp_path), runner=MockPsseRunner())
 
 
-def test_cli_lists_models_and_builds_a_defaults_case(example_model, cli_runner, tmp_path):
+def test_cli_lists_every_model(cli_runner):
     listed = json.loads(cli_runner.invoke(cli, ["models", "list"]).output)
-    assert {m["id"] for m in listed["data"]["models"]} >= {"perc1_dll", "clod", example_model.id}
+    assert {m["id"] for m in listed["data"]["models"]} == set(LOAD_MODELS)
 
     shown = json.loads(cli_runner.invoke(cli, ["models", "show", "clod"]).output)
     assert shown["data"]["con_names"] == ["PC_LM", "PC_SM", "PC_TX", "PC_DL", "PC_CP"]
     assert shown["data"]["capabilities"]["mock_run"] is False
 
+    unknown = cli_runner.invoke(cli, ["params", "generate", "--source", "defaults", "--model", "nope"])
+    assert unknown.exit_code == 2
+
+
+@pytest.mark.parametrize("model", RUNNABLE, ids=lambda m: m.id)
+def test_cli_builds_validates_and_runs_a_defaults_case(model, cli_runner, tmp_path):
     out = str(tmp_path / "case.json")
-    result = cli_runner.invoke(cli, ["params", "generate", "--source", "defaults", "--model", example_model.id,
+    result = cli_runner.invoke(cli, ["params", "generate", "--source", "defaults", "--model", model.id,
                                      "--out", out])
     assert result.exit_code == 0, result.output
     assert cli_runner.invoke(cli, ["params", "validate", out]).exit_code == 0
 
-    ran = cli_runner.invoke(cli, ["run", out, "--fault-duration-s", "0.5", "--fault-voltage-pu", "0.5"])
+    ran = cli_runner.invoke(cli, ["run", out, "--fault-duration-s", "3", "--fault-voltage-pu", "0.3"])
     assert ran.exit_code == 0, ran.output
     assert json.loads(ran.output)["data"]["result"]["tripped"] is True
-
-    unknown = cli_runner.invoke(cli, ["params", "generate", "--source", "defaults", "--model", "nope"])
-    assert unknown.exit_code == 2
 
 
 def test_builtin_models_import_nothing_from_each_other():
