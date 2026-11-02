@@ -91,9 +91,8 @@ Rules:
   `test_builtin_models_import_nothing_from_each_other` checks the import rule.
 
 CLOD (`clod/`) is the export-only case: `cons.py` and `dyr.py`, nothing else.
-[`tests/fixtures/example_load_model.py`](../../tests/fixtures/example_load_model.py)
-is a test-only model written as one file. It shows every hook in about 100
-lines, but a built-in model still gets the package layout.
+The [worked example](#worked-example-a-step-trip-model) below is a complete
+model in this layout.
 
 ## Worked example: a step-trip model
 
@@ -101,11 +100,13 @@ A complete model small enough to read in one sitting: one undervoltage and one
 overvoltage trip point, no reconnect, so four CONs. It writes
 `IBUS 'USRLOD' 'ID' 'STPBL' 12 IT 0 4 1 1 0 CON(J) .. CON(J+3) /`, simulates the
 trip, and collapses a ride-through preset to its most demanding point per
-direction. Every file follows the layout above, and a test
-(`tests/test_doc_example.py`) writes these exact blocks to a package and runs
-them, so the example cannot drift from the rules. The hooks it leaves out
-(`simulate_frequency`, `matches_dyr`, `validate_cons`, `result_figure`) are
-optional; see the table at the top of this page.
+direction. Every file follows the layout above. The blocks are the real files in
+[`tests/fixtures/extra_models/step_trip/`](../../tests/fixtures/extra_models/step_trip/),
+the model the test suite registers for its end-to-end runs (case, export, mock
+run, sweep, CLI), and `tests/test_doc_example.py` fails if a block differs from
+its file. The hooks it leaves out (`simulate_frequency`, `matches_dyr`,
+`validate_cons`, `result_figure`) are optional; see the table at the top of
+this page.
 
 **`cons.py`**: names first, then defaults, then the display rows.
 
@@ -300,6 +301,8 @@ MODEL = LoadModel(
     label="Step-trip model",
     description="Single undervoltage and overvoltage trip point, no reconnect.",
     dyr_model_name="STPBL",
+    dyr_model_aliases=("STPOW", "STPZN", "STPAR", "STPAL"),
+    supports_record_scopes=True,
     con_names=CON_NAMES,
     default_cons=DEFAULT_CONS,
     display_fields=DISPLAY_FIELDS,

@@ -15,8 +15,10 @@ build.
   `docs/developer/ADDING_A_LOAD_MODEL.md` and checked for every model by a test. Renamed: `PERC1_CON_ORDER`,
   `PERC1_DEFAULT_CONS`, `PERC1_DISPLAY_FIELDS`, `CLOD_DISPLAY_FIELDS`, `build_perc1_dyr_block`,
   `parse_perc1_dyr_block`, `simulate_perc1_response`, `clod_record` and their PERC2 counterparts.
-- `docs/developer/ADDING_A_LOAD_MODEL.md` has a worked example, a complete step-trip model in the package layout. A
-  test writes the doc's code blocks to a package and runs the layout and behaviour checks on it.
+- `docs/developer/ADDING_A_LOAD_MODEL.md` has a worked example, a complete step-trip model in the package layout. It
+  is the test suite's non-PERC1 model too (`tests/fixtures/extra_models/step_trip/`, replacing the one-file
+  `example_load_model.py`), so the tests run against a model built the way the doc says, and a test fails if the doc's
+  code differs from the files.
 - No model shares code with another. `load_models/common.py` is gone: `flag_on`, `preset_bundle` and the simulator
   time grid are copied into each model that uses them, and `perc2_dll` and `perc2_standard` carry their own copies of
   the PERC1 DLL CON layout, defaults, `.dyr` parser and simulator, and of the PERC1 standard `.dyr` helpers. A test

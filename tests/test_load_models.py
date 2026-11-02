@@ -10,7 +10,7 @@ import importlib
 import json
 
 import pytest
-from fixtures.example_load_model import MODEL as EXAMPLE_MODEL
+from fixtures.step_trip_model import MODEL as EXAMPLE_MODEL
 
 from dev.cli.main import cli
 from dev.validation.case_model import (
@@ -154,7 +154,7 @@ def test_unknown_model_lists_registered_ids():
 def test_defaults_case_exports_validates_and_overrides(example_model):
     case = case_from_model_defaults(example_model.id, facility=FACILITY, load_composition=LOAD)
     assert schema_problems(case) == []
-    assert "'STPTRP'" in block_dyr_record(case, "it", "1")
+    assert "'STPBL'" in block_dyr_record(case, "it", "1")
 
     case = case_with_overrides(case, "it", {"VUV": 0.5})
     assert case.it_block.cons["VUV"] == 0.5

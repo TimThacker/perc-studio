@@ -46,9 +46,9 @@ def delete_windows_after_each_test():
 
 @pytest.fixture
 def example_model(monkeypatch):
-    """Registers tests/fixtures/example_load_model.py's non-PERC1 model for
-    one test only, so the built-in registry stays untouched."""
-    from fixtures.example_load_model import MODEL
+    """Registers the step-trip model (tests/fixtures/extra_models/step_trip/, the package
+    docs/developer/ADDING_A_LOAD_MODEL.md shows) for one test only, so the built-in registry stays untouched."""
+    from fixtures.step_trip_model import MODEL
 
     import load_models
 
