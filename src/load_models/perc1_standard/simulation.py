@@ -32,12 +32,19 @@ from ..base import (
     NOMINAL_FREQUENCY_HZ,
     V_FAULT,
 )
-from ..common import (  # noqa: F401 - DT/OUTPUT_DT/MAX_POINTS are part of the module's API
-    DT,
-    MAX_POINTS,
-    OUTPUT_DT,
-    decimate,
-)
+
+DT = 1.0 / 240.0  # PSS/E's quarter-cycle time step
+OUTPUT_DT = 0.01
+MAX_POINTS = 4000
+
+
+def decimate(rows):
+    """Keep about one row per OUTPUT_DT (and at most MAX_POINTS rows), always keeping the last."""
+    stride = max(1, round(OUTPUT_DT / DT), int(len(rows) / MAX_POINTS) + 1)
+    out = rows[::stride]
+    if out[-1][0] != rows[-1][0]:
+        out.append(rows[-1])
+    return out
 
 MIN_VOLTAGE = 1e-3  # PSS/E returns NaN at exactly 0 pu
 

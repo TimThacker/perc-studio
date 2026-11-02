@@ -13,7 +13,6 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from load_models import get_load_model
-from load_models.common import flag_on
 from load_models.perc1_dll.cons import DISPLAY_FIELDS as PERC1_DISPLAY_FIELDS
 from load_models.perc1_dll.cons import FIXED_DEFAULTS as PERC1_FIXED_DEFAULTS
 from load_models.perc1_dll.cons import ZIP_EXPONENT_MAP
@@ -28,6 +27,7 @@ from load_models.perc1_standard.presets import preset_gaps
 from load_models.perc2_dll.cons import DISPLAY_FIELDS as PERC2_DLL_DISPLAY_FIELDS
 from load_models.perc2_dll.cons import ICON_NAMES as PERC2_DLL_FLAG_NAMES
 from load_models.perc2_dll.cons import RAMP_CONS as PERC2_DLL_RAMP_CONS
+from load_models.perc2_dll.cons import flag_on
 from load_models.perc2_dll.cons import validate_cons as perc2_dll_validate_cons
 from load_models.perc2_standard.cons import CON_SPECS as PERC2_CON_SPECS
 from load_models.perc2_standard.cons import DEFAULT_CONS as PERC2_DEFAULT_CONS

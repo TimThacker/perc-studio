@@ -220,3 +220,33 @@ def test_cli_lists_models_and_builds_a_defaults_case(example_model, cli_runner, 
 
     unknown = cli_runner.invoke(cli, ["params", "generate", "--source", "defaults", "--model", "nope"])
     assert unknown.exit_code == 2
+
+
+def test_builtin_models_import_nothing_from_each_other():
+    """Each model is defined in full in its own package (docs/developer/ADDING_A_LOAD_MODEL.md, "Package layout"):
+    the only thing a model package imports from `load_models` is `base`, the contract."""
+    import ast
+    import pathlib
+
+    import load_models
+
+    root = pathlib.Path(load_models.__file__).parent
+    allowed_siblings = {"base"}
+    for model in LOAD_MODELS.values():
+        for path in (root / model.id).glob("*.py"):
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf8"))):
+                if isinstance(node, ast.ImportFrom):
+                    names = [node.module or ""]
+                    level, module = node.level, node.module or ""
+                    if level == 1 and not module:  # `from . import x`
+                        names = [a.name for a in node.names]
+                    elif level == 2:  # `from ..x import y` reaches into load_models
+                        names = [module.split(".")[0] or node.names[0].name]
+                    elif level == 0 and module.startswith("load_models."):
+                        names = [module.split(".")[1]]
+                        level = 2
+                    if level == 2:
+                        assert names[0] in allowed_siblings, f"{path.name} in {model.id} imports {names[0]}"
+                elif isinstance(node, ast.Import):
+                    for alias in node.names:
+                        assert not alias.name.startswith("load_models."), f"{path.name} in {model.id}: {alias.name}"

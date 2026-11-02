@@ -15,19 +15,17 @@ from __future__ import annotations
 import re
 
 from ..base import RECORD_SCOPES, get_record_scope, validate_load_id
-from ..perc1_standard.dyr import (
-    MAX_COMPONENTS,
-    STATIC_REMAINDER_CONS,
-    _main_record,
-    _strip_comments,
-    format_value,
-)
 from .cons import CON_NAMES, CON_ONLY_NAMES, ICON_NAMES, validate_cons
 
 MODEL_CODE = 230
 N_ICON, N_CON, N_STATE, N_VAR, N_RESERVED_ICON = 6, 57, 8, 44, 16
 FAMILY = "PERC"
 VERSION_SUFFIX = "2U"
+MAX_COMPONENTS = 10
+
+# LSTCxx static component: PFs, P1e, P1c, P2e, P2c, Pfrq, Q1e, Q1c, Q2e, Q2c, Qfrq. The remainder of a partially
+# PERC load; the data sheet's example (constant-impedance-heavy ZIP) is a reasonable stand-in.
+STATIC_REMAINDER_CONS = (1.0, 2.0, 0.3, 1.0, 0.7, 0.0, 2.0, 1.0, 1.0, 1.0, -1.0)
 
 
 def perc2_model_name(scope: str) -> str:
@@ -36,6 +34,23 @@ def perc2_model_name(scope: str) -> str:
 
 def format_flag(value) -> str:
     return str(round(float(value)))
+
+
+def format_value(value) -> str:
+    return f"{float(value):.6g}"
+
+
+def _main_record(number, load_id, scope, fractions: dict[int, float]) -> str:
+    """MAINxx10: component types (1 = load) for the listed components, their load fractions (-1 = the balance)."""
+    ctype = [1 if i + 1 in fractions else 0 for i in range(MAX_COMPONENTS)]
+    frac = [fractions.get(i + 1, 0.0) for i in range(MAX_COMPONENTS)]
+    suffix = get_record_scope(scope).suffix
+    return (f"{number} 'MAIN{suffix}10' '{load_id}' {' '.join(map(str, ctype))}  "
+            f"{' '.join(format_value(f) for f in frac)} /")
+
+
+def _strip_comments(text: str) -> str:
+    return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith(("@!", "//")))
 
 
 def build_perc2_standard_record(number, load_id, cons, scope="bus", *, load_fraction=1.0, component=1,

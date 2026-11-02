@@ -98,8 +98,7 @@ perc-studio/
 │   │   └── runner.py            # PsseRunner contract, mock runner, FaultScenario/SimulationResult
 │   ├── load_models/             # one subpackage per model; see ADDING_A_LOAD_MODEL.md
 │   │   ├── __init__.py          # registry: LOAD_MODELS, get_load_model, find_model_for_dyr
-│   │   ├── base.py              # the LoadModel contract + shared .dyr helpers
-│   │   ├── common.py            # helpers the PERC models share: flag_on, preset_bundle, the simulator time grid
+│   │   ├── base.py              # the LoadModel contract + the .dyr helpers every record writer uses
 │   │   ├── perc1_dll/           # cons.py, dyr.py, simulation.py
 │   │   ├── perc1_standard/      # cons.py, dyr.py, presets.py (PSS/E 36.7 PERCxx1U)
 │   │   ├── perc2_standard/      # cons.py, dyr.py, presets.py, simulation.py (PSS/E 36.7 PERCxx2U)
@@ -166,8 +165,7 @@ psse, blackbox, dev    PSS/E runner contract, black-box model testing, the autom
 function are the documented exceptions: `load_models` reaches `preview` for a model's report figure, `app/launcher.py`
 opens the `ui`, and the black-box and CLI features reach each other lazily. `dev/` (the `perc-studio` CLI and the
 advanced model validation) is imported by nothing in the desktop app, so the installer does not need it. Shared code goes in the lowest package that can
-hold it: the helpers the PERC models share are `load_models/common.py`, envelope geometry is `presets/envelope.py`,
-and what the response pages share is `preview/style.py` and `preview/frame.py`.
+hold it: envelope geometry is `presets/envelope.py`, and what the response pages share is `preview/style.py` and `preview/frame.py`.
 
 ## Module responsibilities
 

@@ -5,6 +5,22 @@ section of each release is its release note for the production edition;
 **Developer** lists changes that only affect the development edition and the
 build.
 
+## Unreleased
+
+### Developer
+
+- Every built-in load model is one package with the same files and public names (`cons.py`: `CON_NAMES`,
+  `DEFAULT_CONS`, `DISPLAY_FIELDS`; `dyr.py`: `build_<id>_record`, `parse_<id>_record`, ...; `simulation.py`:
+  `simulate_<id>_response`; `presets.py`: `cons_for_preset`, `preset_gaps`). The layout is in
+  `docs/developer/ADDING_A_LOAD_MODEL.md` and checked for every model by a test. Renamed: `PERC1_CON_ORDER`,
+  `PERC1_DEFAULT_CONS`, `PERC1_DISPLAY_FIELDS`, `CLOD_DISPLAY_FIELDS`, `build_perc1_dyr_block`,
+  `parse_perc1_dyr_block`, `simulate_perc1_response`, `clod_record` and their PERC2 counterparts.
+- No model shares code with another. `load_models/common.py` is gone: `flag_on`, `preset_bundle` and the simulator
+  time grid are copied into each model that uses them, and `perc2_dll` and `perc2_standard` carry their own copies of
+  the PERC1 DLL CON layout, defaults, `.dyr` parser and simulator, and of the PERC1 standard `.dyr` helpers. A test
+  fails if a model package imports another. Nothing a user sees changes: CON names, defaults, `.dyr` text and
+  simulated responses are identical to 1.2.1.
+
 ## 1.2.1 - 2026-10-26
 
 ### User-facing

@@ -21,8 +21,17 @@ from __future__ import annotations
 
 import math
 
-from ..common import preset_bundle
 from .cons import DEFAULT_CONS
+
+
+def _preset_bundle(preset, block_name):
+    """The preset's CON values for the "it" or "vfd" block."""
+    if block_name == "it":
+        return preset.it_bundle
+    if block_name == "vfd":
+        return preset.vfd_bundle
+    raise ValueError(f"ride-through presets define CONs for blocks 'it' and 'vfd', not {block_name!r}")
+
 
 HZ_NOMINAL = 60.0
 RECONNECT_VOLTAGE_CEILING = 0.95
@@ -53,7 +62,7 @@ def _fill_points(cons, prefix, stages, off):
 
 def cons_for_preset(preset, block_name: str) -> dict:
     """Every flag and CON, encoding `preset`'s ride-through for the `it` or `vfd` block (see the module docstring)."""
-    b = preset_bundle(preset, block_name)
+    b = _preset_bundle(preset, block_name)
     cons = dict(DEFAULT_CONS)
     ld = float(b["LFM"])
     uv = _stages(b, UV_PAIRS, high=False)

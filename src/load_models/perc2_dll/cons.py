@@ -1,8 +1,8 @@
 """PERC2 DLL v2.3 (`PERC2_v34/v35/v36_v2p3.dll`): ICON/CON layout, defaults, display fields and checks.
 
 Source: the vendor document "POWER ELECTRONIC LOAD MODEL (PERC2_V2P3.dll)" (ISO-NE, *Data Center Performance Model
-(PERC1) - PSS/E v34/v35 documentation*) and its sample `.dyr` record. The record is the PERC1 DLL's (`perc1_dll`, CON J..J+172 unchanged) with six CONs
-appended (J+173..J+178): a reactive-power lead-lag, and a reconnect band and two ramps for momentary cessation. The
+(PERC1) - PSS/E v34/v35 documentation*) and its sample `.dyr` record. The record keeps the PERC1 DLL record's 173-CON layout (CON J..J+172) and appends
+six CONs (J+173..J+178): a reactive-power lead-lag, and a reconnect band and two ramps for momentary cessation. The
 two ICONs are kept in the CON dict as integers, in record order, like the PERC2 standard model's flags.
 
 Every rule below was measured in PSS/E 35.6.4 (`PERC2_v35_v2p3.dll`) and 36.7.1 (`PERC2_v36_v2p3.dll`); the evidence
@@ -15,18 +15,64 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from ..common import flag_on
-from ..perc1_dll.cons import CON_NAMES as PERC1_CON_NAMES
-from ..perc1_dll.cons import DEFAULT_CONS as PERC1_DEFAULT_CONS
-from ..perc1_dll.cons import DISPLAY_FIELDS as PERC1_DISPLAY_FIELDS
-from ..perc1_dll.cons import DYR_LAYOUT as PERC1_DYR_LAYOUT
+
+def flag_on(cons, name) -> bool:
+    """PSS/E enables a check only for a flag of exactly 1 (sheet note 7, confirmed for 2 and -1)."""
+    try:
+        return round(float(cons[name])) == 1
+    except (KeyError, TypeError, ValueError):
+        return False
+
 
 # ICON(M) = 0 for a 60 Hz system, 1 for 50 Hz; ICON(M+1) = 1 enables momentary cessation (Option 2).
 ICON_NAMES = ("FREQ50", "MCFLAG")
 V2P3_LAYOUT_EXTRA = [["TAQ", "TBQ"], ["RAMPAMC", "RAMPUAMC"], ["VLRCMC", "VURCMC"]]
 EXTRA_CONS = tuple(n for row in V2P3_LAYOUT_EXTRA for n in row)
-DYR_LAYOUT = [*PERC1_DYR_LAYOUT, *V2P3_LAYOUT_EXTRA]
-CON_ONLY_NAMES = PERC1_CON_NAMES + EXTRA_CONS
+
+def _channel_block(suffix):
+    # The lead-lag CONs are named bare "TA"/"TB" for the primary ("A") channel
+    # but "TAB"/"TBB", "TAC"/"TBC", "TAD"/"TBD" for the unused B/C/D channels
+    # - an irregularity in the vendor's own naming, not a typo to normalize.
+    lead_lag = ["TA", "TB"] if suffix == "A" else [f"TA{suffix}", f"TB{suffix}"]
+    return (
+        [f"{n}{suffix}" for n in ("VDP", "DM", "TDR", "VRP", "RAMP", "DROOP", "KWASH", "TWASH")]
+        + lead_lag
+        + [f"{n}{suffix}" for n in ("FR", "NP", "VNOM", "IPMAX", "IPMIN", "IQMAX", "IQMIN", "TR", "NQ", "DB", "VDU", "TDU")]
+    )
+
+
+def _freq_block(suffix):
+    return [f"{n}{suffix}" for n in (
+        "FOFTP", "TOFTP", "FOFRN", "TOFRN", "ROFRN", "FUFTP", "TUFTP", "FUFRN", "TUFRN", "RUFRN",
+    )]
+
+
+
+# CON(J) .. CON(J+178) in record order, one list per "@!" row of the vendor sample: the 173 CONs of the
+# `PERCBL` record layout (J..J+172), then the three v2.3 rows (J+173..J+178).
+DYR_LAYOUT = [
+    _channel_block("A"),
+    _channel_block("B"),
+    _channel_block("C"),
+    _channel_block("D"),
+    ["ZETAA", "WNAA", "ZETAB", "WNAB", "ZETAC", "WNAC", "ZETAD", "WNAD"],
+    ["VDPA1", "DMA1", "VDPA2", "DMA2", "VDPA3", "DMA3"],
+    ["VDUA1", "TDUA1", "VDUA2", "TDUA2", "VDUA3", "TDUA3"],
+    ["VRUPA", "TRUPA", "RAMPUA"],
+    ["VRUPB", "TRUPB", "RAMPUB"],
+    ["VRUPC", "TRUPC", "RAMPUC"],
+    ["VRUPD", "TRUPD", "RAMPUD"],
+    _freq_block("1"),
+    _freq_block("2"),
+    _freq_block("3"),
+    _freq_block("4"),
+    ["VLBLK", "VUBLK", "TBLK", "TDELY"],
+    ["FCEASE", "FRECON"],
+    ["KWASHQ", "TWASHQ"],
+    ["TVM", "CMTDELAY", "LFM", "CMTDELAYC", "TFRQ"],
+    *V2P3_LAYOUT_EXTRA,
+]
+CON_ONLY_NAMES = tuple(name for row in DYR_LAYOUT for name in row)
 assert len(CON_ONLY_NAMES) == 179 and len(set(CON_ONLY_NAMES)) == 179
 CON_NAMES = ICON_NAMES + CON_ONLY_NAMES
 ZIP_FIELDS = {"NPA", "NQA"}
@@ -39,8 +85,117 @@ LFM_FLOOR = 0.001
 LFM_FALLBACK = 0.8
 
 
-def _perc1_defaults() -> dict:
-    return dict(PERC1_DEFAULT_CONS)
+# The vendor-typical value of every CON of the 173-CON record except the ten core CONs `_vendor_defaults` adds.
+# `IPMAXA` and `CMTDELAY` have no vendor-specified default; the values here are this app's neutral baseline.
+FIXED_DEFAULTS = {
+    # Active power loop support blocks (bypassed unless overridden).
+    "DROOPA": 10.0,
+    "KWASHA": 0.0,
+    "TWASHA": 0.0,
+    "TA": 0.0,
+    "TB": 0.0,
+    "FRA": 1.0,
+    "VNOMA": 1.0,
+    "IPMAXA": 1.0,
+    "IPMINA": 0.0,
+    "IQMAXA": 0.667,
+    "IQMINA": -0.667,
+    "DBA": 0.0,
+    # High-voltage cease threshold/delay - channel A's own overvoltage
+    # counterpart to VDPA/DMA, paired with the VRUPA/TRUPA/RAMPUA reconnect
+    # block below (mirrors VRPA/TDRA/RAMPA on the undervoltage side). This is
+    # a real CON pair in the DLL variant, confirmed against the vendor's own
+    # documentation - not fabricated, and not the same thing as the newer
+    # "Standard" variant's (absent) high-voltage logic - see module docstring.
+    "VDUA": 1.1,
+    "TDUA": 0.5,
+    # Reactive power loop washout (bypassed).
+    "KWASHQ": 0.0,
+    "TWASHQ": 0.0,
+    # Filters.
+    "TVM": 0.02,
+    "CMTDELAY": 0.0,
+    "LFM": 0.8,
+    "CMTDELAYC": 0.0,
+    "TFRQ": 0.02,
+    # Momentary cessation (Option 2) - not used since this app drives Option 1.
+    "VLBLK": 0.5,
+    "VUBLK": 1.1,
+    "TBLK": 0.0167,
+    "TDELY": 0.033,
+    # Option 3 multi-step voltage trip/reconnect settings. RESOLVED 2026-09-24
+    # (see docs/developer/PERC1_MODEL.md "Option 3 is always live"): direct
+    # PSS/E v35.6.4
+    # simulation against the real compiled PERC2_V35.dll confirmed the DLL
+    # always evaluates this 4-stage table, for every facility, regardless of
+    # whether it's meant to use "Option 1 only" - there is no flag that
+    # disables stages 2-4 the way ICON(M+1) disables Option 2. Because of
+    # this, every CON-dict-building step in this app (DEFAULT_CONS
+    # below, presets/ridethrough.py's preset bundles) calls
+    # `voltage_stage_cons()` to REPLACE the vendor-sample values below with
+    # either the preset's own real multi-tier envelope or (for the
+    # single-point defaults) that same single point repeated
+    # into every stage - a repeated stage fires at the exact same time as the
+    # tier it copies, so it cannot introduce a different, earlier trip
+    # condition (validated directly in PSS/E, in the PSS/E validation library,
+    # which is not published). The values below
+    # remain the raw vendor-sample defaults (confirmed identical across two
+    # independent vendor examples) - they are the correct *fallback* for any
+    # future caller that forgets to call voltage_stage_cons(), but should
+    # never be the values actually exported for a real facility.
+    "VDPA1": 0.80, "DMA1": 0.50,
+    "VDPA2": 0.5, "DMA2": 0.15,
+    "VDPA3": 0.5, "DMA3": 0.15,
+    "VDUA1": 1.2, "TDUA1": 0.0,
+    "VDUA2": 1.2, "TDUA2": 0.0,
+    "VDUA3": 1.2, "TDUA3": 0.0,
+    "VRUPA": 1.05, "TRUPA": 5.0, "RAMPUA": 5.0,
+    # Frequency trip/reconnect settings (standard 58-62 Hz band, block 1 only).
+    "FOFTP1": 62.0, "TOFTP1": 100.01,
+    "FOFRN1": 61.5, "TOFRN1": 100.0, "ROFRN1": 5.0,
+    "FUFTP1": 58.0, "TUFTP1": 100.0,
+    "FUFRN1": 58.5, "TUFRN1": 100.0, "RUFRN1": 5.0,
+}
+for _n in (2, 3, 4):
+    FIXED_DEFAULTS.update({
+        f"FOFTP{_n}": 99.0, f"TOFTP{_n}": 999.0,
+        f"FOFRN{_n}": 99.0, f"TOFRN{_n}": 999.0, f"ROFRN{_n}": 999.0,
+        f"FUFTP{_n}": 99.0, f"TUFTP{_n}": 999.0,
+        f"FUFRN{_n}": 99.0, f"TUFRN{_n}": 999.0, f"RUFRN{_n}": 999.0,
+    })
+for _suffix in ("B", "C", "D"):
+    for _name in ("VDP", "DM", "TDR", "VRP", "RAMP", "DROOP", "KWASH", "TWASH", "TA", "TB",
+                  "FR", "NP", "VNOM", "IPMAX", "IPMIN", "IQMAX", "IQMIN", "TR", "NQ", "DB", "VDU", "TDU"):
+        FIXED_DEFAULTS[f"{_name}{_suffix}"] = 0.0
+    for _name in ("VRUP", "TRUP", "RAMPU"):
+        FIXED_DEFAULTS[f"{_name}{_suffix}"] = 0.0
+for _name in ("ZETAA", "WNAA", "ZETAB", "WNAB", "ZETAC", "WNAC", "ZETAD", "WNAD"):
+    FIXED_DEFAULTS[_name] = 0.0
+del _n, _suffix, _name
+
+
+def _vendor_defaults() -> dict:
+    """The 173-CON record's default set: a double-conversion (constant power) block with a generic Standard-tier
+    undervoltage trip (0.70 pu, 0.02 s), the full block tripping and a staged reconnect. The compiled DLL evaluates
+    all four voltage stages unconditionally, so the stage-1 point is repeated into stages 2-4 (a repeated stage
+    fires at the same time as the one it copies)."""
+    d = {
+        **FIXED_DEFAULTS,
+        "NPA": 0,
+        "NQA": 0,
+        "TRA": 0.02,
+        "VDPA": 0.70,
+        "DMA": 0.02,
+        "FCEASE": 1.0,
+        "VRPA": 0.9,
+        "TDRA": 60.0,
+        "RAMPA": 30.0,
+        "FRECON": 1.0,
+    }
+    for suffix in ("1", "2", "3"):
+        d[f"VDPA{suffix}"], d[f"DMA{suffix}"] = d["VDPA"], d["DMA"]
+        d[f"VDUA{suffix}"], d[f"TDUA{suffix}"] = d["VDUA"], d["TDUA"]
+    return d
 
 
 def effective_lfm(cons) -> float:
@@ -49,12 +204,12 @@ def effective_lfm(cons) -> float:
 
 
 def _build_defaults() -> dict:
-    """The PERC1 DLL's defaults (so a new block behaves like a new PERC1 DLL block), the six new CONs from the vendor
+    """The 173-CON record's defaults (so a new block behaves like a new PERC1 DLL block), the six new CONs from the vendor
     sample, momentary cessation off, 60 Hz. The DLL multiplies RAMPA and RAMPUA by LFM (validation finding 4); the
     PERC1 DLL does not, so those two are divided by LFM here to keep the same ramp in seconds."""
-    p1 = _perc1_defaults()
+    p1 = _vendor_defaults()
     out = {"FREQ50": 0, "MCFLAG": 0}
-    out.update({n: p1[n] for n in PERC1_CON_NAMES})
+    out.update({n: p1[n] for n in CON_ONLY_NAMES[:-len(EXTRA_CONS)]})
     out.update(SAMPLE_EXTRA)
     lfm = effective_lfm(out)
     for n in RAMP_CONS:
@@ -88,10 +243,70 @@ def ramp_seconds(cons, name) -> float:
 DEFAULT_CONS = _build_defaults()
 assert tuple(DEFAULT_CONS) == CON_NAMES
 
-# The PERC1 DLL's display rows, plus the momentary-cessation and v2.3 rows.
+# The 173-CON record's display rows, plus the momentary-cessation and v2.3 rows.
 DISPLAY_FIELDS = (
     ("MCFLAG", "Momentary cessation on (ICON(M+1))", "MCFLAG / ICON(M+1)"),
-    *PERC1_DISPLAY_FIELDS,
+    ("VDPA", "Undervoltage stage 1 trip (pu)", "Vcease / VDPA"),
+    ("DMA", "Undervoltage stage 1 delay (s)", "Tcease / DMA"),
+    ("FCEASE", "Fraction that trips", "Fcease / FCEASE"),
+    ("VRPA", "Undervoltage reconnect voltage (pu)", "Vrecon / VRPA"),
+    ("TDRA", "Undervoltage reconnect delay (s)", "Trecon / TDRA"),
+    ("RAMPA", "Undervoltage reconnect ramp (s)", "Tramp / RAMPA"),
+    ("FRECON", "Fraction that reconnects", "Frecon / FRECON"),
+    ("NPA", "Active ZIP exponent (0=P, 1=I, 2=Z)", "NPA"),
+    ("NQA", "Reactive ZIP exponent (0=P, 1=I, 2=Z)", "NQA"),
+    ("TRA", "Numerical filter (s)", "Tt / TRA"),
+    ("VDUA", "Overvoltage stage 1 trip (pu)", "VDUA"),
+    ("TDUA", "Overvoltage stage 1 delay (s)", "TDUA"),
+    ("DROOPA", "Frequency droop", "DROOPA"),
+    ("IPMAXA", "Active current limit (pu)", "IPMAXA"),
+    ("IPMINA", "Active current floor (pu)", "IPMINA"),
+    ("IQMAXA", "Reactive current limit (pu)", "IQMAXA"),
+    ("IQMINA", "Reactive current floor (pu)", "IQMINA"),
+    # Option-3 multi-stage ride-through curve (stages 2-4; stage 1 is
+    # VDPA/DMA and VDUA/TDUA above). Exposed for direct editing since
+    # PSS/E confirmed the compiled DLL always
+    # evaluates all 4 stages - see voltage_stage_cons()'s docstring and
+    # docs/developer/PERC1_MODEL.md's "Option 3 is always live" section. Every preset
+    # in presets/ridethrough.py now populates these from its own real
+    # multi-tier envelope rather than leaving them at the vendor-sample
+    # defaults.
+    *[
+        row
+        for n in (2, 3, 4)
+        for row in (
+            (f"VDPA{n - 1}", f"Undervoltage stage {n} trip (pu)", f"VDPA{n - 1}"),
+            (f"DMA{n - 1}", f"Undervoltage stage {n} delay (s)", f"DMA{n - 1}"),
+        )
+    ],
+    *[
+        row
+        for n in (2, 3, 4)
+        for row in (
+            (f"VDUA{n - 1}", f"Overvoltage stage {n} trip (pu)", f"VDUA{n - 1}"),
+            (f"TDUA{n - 1}", f"Overvoltage stage {n} delay (s)", f"TDUA{n - 1}"),
+        )
+    ],
+    # Overvoltage trips reconnect through their own high-side CONs, not
+    # VRPA/TDRA/RAMPA (vendor documentation; see docs/developer/PERC1_MODEL.md's
+    # "Which reconnect settings apply to which trip").
+    ("VRUPA", "Overvoltage reconnect voltage (pu)", "VRUPA"),
+    ("TRUPA", "Overvoltage reconnect delay (s)", "TRUPA"),
+    ("RAMPUA", "Overvoltage reconnect ramp (s)", "RAMPUA"),
+    # Frequency trip/reconnect: the vendor data sheet uses only CONs J+120 to
+    # J+129 (the "1"-suffixed set) and marks every stage-2-4 frequency CON
+    # (J+130 to J+159) "NOT USED" - one frequency stage per direction, unlike
+    # voltage's four.
+    ("FUFTP1", "Frequency deadband low (Hz)", "FUFTP1"),
+    ("TUFTP1", "Trip delay below deadband (s)", "TUFTP1"),
+    ("FUFRN1", "Under-frequency reconnect frequency (Hz)", "FUFRN1"),
+    ("TUFRN1", "Under-frequency reconnect delay (s)", "TUFRN1"),
+    ("RUFRN1", "Under-frequency reconnect ramp (s)", "RUFRN1"),
+    ("FOFTP1", "Frequency deadband high (Hz)", "FOFTP1"),
+    ("TOFTP1", "Trip delay above deadband (s)", "TOFTP1"),
+    ("FOFRN1", "Over-frequency reconnect frequency (Hz)", "FOFRN1"),
+    ("TOFRN1", "Over-frequency reconnect delay (s)", "TOFRN1"),
+    ("ROFRN1", "Over-frequency reconnect ramp (s)", "ROFRN1"),
     ("VLBLK", "Momentary cessation below (pu)", "VLBLK"),
     ("VUBLK", "Momentary cessation above (pu)", "VUBLK"),
     ("TBLK", "Momentary cessation reconnect delay (s)", "TBLK"),

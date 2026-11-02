@@ -57,9 +57,15 @@ Rules:
 - **Each model is defined in full in its own files.** Two models may use a
   CON name, a check or a constant that looks the same, but PSS/E may treat it
   differently in each. Keep a separate copy in each package rather than
-  moving it to a shared module.
+  moving it to a shared module. A model imports nothing from another model
+  package and no shared helper module; its only imports from `load_models`
+  are `..base` (the `LoadModel` contract and the `.dyr` helpers every record
+  writer uses). That includes small helpers such as a flag test or a preset
+  bundle lookup: copy them. The CON names a model writes to its `.dyr` record
+  stay as the vendor spells them, whatever another model calls the same CON.
 - `tests/test_load_models.py::test_builtin_model_follows_the_package_layout`
-  checks these names for every built-in model.
+  checks these names for every built-in model, and
+  `test_builtin_models_import_nothing_from_each_other` checks the import rule.
 
 CLOD (`clod/`) is the export-only case: `cons.py` and `dyr.py`, nothing else.
 [`tests/fixtures/example_load_model.py`](../../tests/fixtures/example_load_model.py)

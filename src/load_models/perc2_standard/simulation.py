@@ -35,14 +35,29 @@ from ..base import (
     NOMINAL_FREQUENCY_HZ,
     V_FAULT,
 )
-from ..common import (  # noqa: F401 - DT/OUTPUT_DT/MAX_POINTS are part of the module's API
-    DT,
-    MAX_POINTS,
-    OUTPUT_DT,
-    decimate,
-    flag_on,
-)
 from .cons import effective_ldfact, effective_limits, long_time_point
+
+DT = 1.0 / 240.0  # PSS/E's quarter-cycle time step
+OUTPUT_DT = 0.01
+MAX_POINTS = 4000
+
+
+def decimate(rows):
+    """Keep about one row per OUTPUT_DT (and at most MAX_POINTS rows), always keeping the last."""
+    stride = max(1, round(OUTPUT_DT / DT), int(len(rows) / MAX_POINTS) + 1)
+    out = rows[::stride]
+    if out[-1][0] != rows[-1][0]:
+        out.append(rows[-1])
+    return out
+
+
+def flag_on(cons, name) -> bool:
+    """PSS/E enables a check only for a flag of exactly 1 (sheet note 7, confirmed for 2 and -1)."""
+    try:
+        return round(float(cons[name])) == 1
+    except (KeyError, TypeError, ValueError):
+        return False
+
 
 MIN_VOLTAGE = 1e-3
 FREQUENCY_GATE_PU = 0.7  # below this bus voltage the frequency filter's input is held at nominal (sheet note 5)

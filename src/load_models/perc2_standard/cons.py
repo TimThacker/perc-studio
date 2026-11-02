@@ -18,7 +18,14 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from ..common import flag_on
+
+def flag_on(cons, name) -> bool:
+    """PSS/E enables a check only for a flag of exactly 1 (sheet note 7, confirmed for 2 and -1)."""
+    try:
+        return round(float(cons[name])) == 1
+    except (KeyError, TypeError, ValueError):
+        return False
+
 
 ICON_NAMES = ("VLMflag", "VHMflag", "VLLflag", "VLHflag", "FLflag", "FHflag")
 
