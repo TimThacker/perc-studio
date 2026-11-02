@@ -35,7 +35,7 @@ from ..base import (
     NOMINAL_FREQUENCY_HZ,
     V_FAULT,
 )
-from .cons import effective_ldfact, effective_limits, long_time_point
+from .cons import effective_ldfact, effective_limits, flag_on, long_time_point
 
 DT = 1.0 / 240.0  # PSS/E's quarter-cycle time step
 OUTPUT_DT = 0.01
@@ -49,14 +49,6 @@ def decimate(rows):
     if out[-1][0] != rows[-1][0]:
         out.append(rows[-1])
     return out
-
-
-def flag_on(cons, name) -> bool:
-    """PSS/E enables a check only for a flag of exactly 1 (sheet note 7, confirmed for 2 and -1)."""
-    try:
-        return round(float(cons[name])) == 1
-    except (KeyError, TypeError, ValueError):
-        return False
 
 
 MIN_VOLTAGE = 1e-3
@@ -331,3 +323,20 @@ def simulate_perc2_standard_profile(c, breakpoints, t_end):
 
     rows, logic = run_profile(c, lambda t: at(t, 1), lambda t: at(t, 2), t_end)
     return rows, logic
+
+
+__all__ = [
+    "DT",
+    "FREQUENCY_GATE_PU",
+    "MAX_POINTS",
+    "MIN_VOLTAGE",
+    "NEVER",
+    "OUTPUT_DT",
+    "CeaseLogic",
+    "build_checks",
+    "decimate",
+    "run_profile",
+    "simulate_perc2_standard_frequency_response",
+    "simulate_perc2_standard_profile",
+    "simulate_perc2_standard_response",
+]

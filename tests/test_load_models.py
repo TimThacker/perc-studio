@@ -250,3 +250,74 @@ def test_builtin_models_import_nothing_from_each_other():
                 elif isinstance(node, ast.Import):
                     for alias in node.names:
                         assert not alias.name.startswith("load_models."), f"{path.name} in {model.id}: {alias.name}"
+
+
+# --- Module structure: every built-in model's cons/dyr/presets/simulation file -----
+
+
+def _model_modules():
+    """(model id, file name, path, parsed tree) for every cons/dyr/presets/simulation file of every built-in model."""
+    import ast
+    import pathlib
+
+    import load_models
+
+    root = pathlib.Path(load_models.__file__).parent
+    for model in LOAD_MODELS.values():
+        for name in ("cons", "dyr", "presets", "simulation"):
+            path = root / model.id / f"{name}.py"
+            if path.exists():
+                yield model.id, name, path, ast.parse(path.read_text(encoding="utf8"))
+
+
+def _top_level_names(tree):
+    """Name -> line number of every module-level def, class and assignment target."""
+    import ast
+
+    names = {}
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+            names.setdefault(node.name, node.lineno)
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                for el in target.elts if isinstance(target, ast.Tuple) else [target]:
+                    if isinstance(el, ast.Name):
+                        names.setdefault(el.id, node.lineno)
+    return names
+
+
+def test_model_modules_have_a_docstring_and_end_with_an_exact_all():
+    """Every file opens with a docstring and closes with `__all__`, which lists exactly the public names it defines."""
+    import ast
+
+    for model_id, name, path, tree in _model_modules():
+        label = f"{model_id}/{name}.py"
+        assert ast.get_docstring(tree), f"{label} has no module docstring"
+        last = tree.body[-1]
+        assert isinstance(last, ast.Assign) and last.targets[0].id == "__all__", f"{label} must end with __all__"
+        listed = [el.value for el in last.value.elts]
+        public = [n for n in _top_level_names(tree) if not n.startswith("_") and n != "__all__"]
+        assert sorted(listed) == sorted(public), f"{label}: __all__ differs from its public names"
+
+
+def test_cons_modules_define_names_then_defaults_then_display_fields_in_that_order():
+    lines = {model_id: _top_level_names(tree) for model_id, name, _p, tree in _model_modules() if name == "cons"}
+    for model_id, names in lines.items():
+        assert names["CON_NAMES"] < names["DEFAULT_CONS"] < names["DISPLAY_FIELDS"], model_id
+
+
+def test_dyr_modules_share_the_header_constants_and_comment_stripper():
+    for model_id, name, _path, tree in _model_modules():
+        if name != "dyr" or model_id == "clod":
+            continue
+        names = _top_level_names(tree)
+        for required in ("FAMILY", "MODEL_CODE", "N_ICON", "N_CON", "N_STATE", "N_VAR", "N_RESERVED_ICON",
+                         "strip_comments"):
+            assert required in names, f"{model_id}/dyr.py does not define {required}"
+
+
+def test_flag_on_is_defined_only_in_cons():
+    for model_id, name, _path, tree in _model_modules():
+        if name != "cons":
+            assert "flag_on" not in _top_level_names(tree), f"{model_id}/{name}.py defines its own flag_on"

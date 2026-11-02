@@ -1,7 +1,7 @@
 """PERC2 DLL v2.3 response to a single constant-depth voltage or frequency event.
 
 v2.3 runs the PERC1 DLL's logic (in PSS/E, the PERC1 DLL behavior checks pass on both builds), so this module holds
-its own copy of that simulator (its filters, power loop and response shape, up to `_record_frequency_response`)
+its own copy of that simulator (its filters, power loop and response shape, up to `_frequency_response`)
 with what v2.3 changed or adds, as PSS/E 35.6.4 and 36.7.1 measured it:
 
 - **Ramps.** RAMPA and RAMPUA last their CON times LFM (LFM below 0.001 counts as 0.8); RUFRN1, ROFRN1, RAMPAMC and
@@ -100,7 +100,7 @@ class _Filtered:
         return best
 
 
-def _run_record_logic(sig, under_stages, over_stages, window, reconnect, fcease, frecon,
+def _run_logic(sig, under_stages, over_stages, window, reconnect, fcease, frecon,
                trip_delay, reconnect_delay, horizon, first_trip_only=False):
     """Run the cease/reconnect state machine on the filtered signal `sig`.
 
@@ -264,7 +264,7 @@ def _first_trip_hold(build_logic, hold_cap):
     return hi
 
 
-def _record_response(p, kind, fault_duration_s, level, recovery_level):
+def _response(p, kind, fault_duration_s, level, recovery_level):
     fcease, frecon = p["FCEASE"], p["FRECON"]
     fault_end = FAULT_START + fault_duration_s
     trip_delay, reconnect_delay = _con(p, "CMTDELAY"), _con(p, "CMTDELAYC")
@@ -293,7 +293,7 @@ def _record_response(p, kind, fault_duration_s, level, recovery_level):
         end = FAULT_START + duration
         sig = _Filtered([(0.0, nominal), (FAULT_START, level), (end, recovery_level)], tau)
         horizon = end + settle + (_MAX_TRIPS + 1) * (longest_trip + longest_reconnect) + 1.0
-        return _run_record_logic(sig, under, over, window, reconnect, fcease, frecon,
+        return _run_logic(sig, under, over, window, reconnect, fcease, frecon,
                           trip_delay, reconnect_delay, horizon, first_trip_only), sig
 
     result, _sig = logic(fault_duration_s)
@@ -390,22 +390,22 @@ def _record_response(p, kind, fault_duration_s, level, recovery_level):
     return response
 
 
-def _record_voltage_response(p, fault_duration_s=FAULT_DURATION, fault_voltage_pu=V_FAULT,
+def _voltage_response(p, fault_duration_s=FAULT_DURATION, fault_voltage_pu=V_FAULT,
                             recovery_voltage_pu=1.0):
     """Voltage steps to `fault_voltage_pu` (a sag or a swell) at FAULT_START,
     holds for `fault_duration_s`, then returns to `recovery_voltage_pu`."""
-    return _record_response(p, "voltage", fault_duration_s, fault_voltage_pu, recovery_voltage_pu)
+    return _response(p, "voltage", fault_duration_s, fault_voltage_pu, recovery_voltage_pu)
 
 
-def _record_frequency_response(p, fault_duration_s=FREQUENCY_EVENT_DURATION,
+def _frequency_response(p, fault_duration_s=FREQUENCY_EVENT_DURATION,
                                       fault_frequency_hz=FREQUENCY_EVENT_HZ,
                                       recovery_frequency_hz=NOMINAL_FREQUENCY_HZ):
-    """The frequency-side counterpart of _record_voltage_response(): frequency
+    """The frequency-side counterpart of _voltage_response(): frequency
     steps to `fault_frequency_hz`, holds for `fault_duration_s`, then returns
     to `recovery_frequency_hz`. The DLL has ONE frequency trip point per
     direction (FUFTP1/TUFTP1, FOFTP1/TOFTP1); stages 2-4 are ignored even when
     set. Power follows the droop while the block is online."""
-    return _record_response(p, "frequency", fault_duration_s, fault_frequency_hz, recovery_frequency_hz)
+    return _response(p, "frequency", fault_duration_s, fault_frequency_hz, recovery_frequency_hz)
 
 
 MC_KINDS = {"mc_under": "low-voltage momentary cessation", "mc_over": "high-voltage momentary cessation"}
@@ -427,7 +427,7 @@ def mc_active(cons) -> bool:
     return flag_on(cons, "MCFLAG") and float(cons["FCEASE"]) > 0
 
 
-def _run_logic(sig, stages, windows, reconnect, fcease, frecon, trip_delay, reconnect_delay, horizon,
+def _run_mc_logic(sig, stages, windows, reconnect, fcease, frecon, trip_delay, reconnect_delay, horizon,
                first_trip_only=False):
     """The cease/reconnect state machine on the filtered voltage `sig`.
 
@@ -521,8 +521,8 @@ def _run_logic(sig, stages, windows, reconnect, fcease, frecon, trip_delay, reco
             "tripped_at_end": mode == "ceased", "cycling": len(trips) >= _MAX_TRIPS, "final_kind": kind}
 
 
-def _voltage_response(c, fault_duration_s, level, recovery_level):
-    """A voltage event with momentary cessation on (`_record_response` with the v2.3 logic)."""
+def _mc_voltage_response(c, fault_duration_s, level, recovery_level):
+    """A voltage event with momentary cessation on (`_response` with the v2.3 logic)."""
     fcease, frecon = float(c["FCEASE"]), float(c["FRECON"])
     fault_end = FAULT_START + fault_duration_s
     trip_delay, reconnect_delay = float(c["CMTDELAY"]), float(c["CMTDELAYC"])
@@ -544,7 +544,7 @@ def _voltage_response(c, fault_duration_s, level, recovery_level):
         end = FAULT_START + duration
         sig = _Filtered([(0.0, 1.0), (FAULT_START, level), (end, recovery_level)], tau)
         horizon = end + settle + (_MAX_TRIPS + 1) * (longest_trip + longest_reconnect) + 1.0
-        return _run_logic(sig, stages, windows, reconnect, fcease, frecon, trip_delay, reconnect_delay, horizon,
+        return _run_mc_logic(sig, stages, windows, reconnect, fcease, frecon, trip_delay, reconnect_delay, horizon,
                           first_trip_only), sig
 
     result, _sig = logic(fault_duration_s)
@@ -617,8 +617,8 @@ def simulate_perc2_dll_response(cons, fault_duration_s=FAULT_DURATION, fault_vol
     `recovery_voltage_pu`."""
     p = perc1_equivalent(cons)
     if not mc_active(cons):
-        return _record_voltage_response(p, fault_duration_s, fault_voltage_pu, recovery_voltage_pu)
-    return _voltage_response({k: (float(v) if not isinstance(v, str) else v) for k, v in p.items()},
+        return _voltage_response(p, fault_duration_s, fault_voltage_pu, recovery_voltage_pu)
+    return _mc_voltage_response({k: (float(v) if not isinstance(v, str) else v) for k, v in p.items()},
                              fault_duration_s, fault_voltage_pu, recovery_voltage_pu)
 
 
@@ -627,5 +627,20 @@ def simulate_perc2_dll_frequency_response(cons, fault_duration_s=FREQUENCY_EVENT
                                           recovery_frequency_hz=NOMINAL_FREQUENCY_HZ):
     """A held frequency (the voltage stays at 1.0 pu, so momentary cessation never acts). The DLL measures frequency
     against 60 Hz whatever ICON(M) says."""
-    return _record_frequency_response(perc1_equivalent(cons), fault_duration_s, fault_frequency_hz,
+    return _frequency_response(perc1_equivalent(cons), fault_duration_s, fault_frequency_hz,
                                              recovery_frequency_hz)
+
+
+__all__ = [
+    "MC_KINDS",
+    "OVERFREQUENCY_RECONNECT_CONS",
+    "OVERFREQUENCY_TRIP_CONS",
+    "OVERVOLTAGE_STAGE_CONS",
+    "UNDERFREQUENCY_RECONNECT_CONS",
+    "UNDERFREQUENCY_TRIP_CONS",
+    "UNDERVOLTAGE_STAGE_CONS",
+    "mc_active",
+    "perc1_equivalent",
+    "simulate_perc2_dll_frequency_response",
+    "simulate_perc2_dll_response",
+]

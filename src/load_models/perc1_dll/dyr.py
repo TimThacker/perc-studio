@@ -12,6 +12,10 @@ import re
 from ..base import RECORD_SCOPES, format_con, get_record_scope, validate_load_id
 from .cons import CON_NAMES, DYR_LAYOUT, ZIP_FIELDS
 
+FAMILY = "PERC"
+MODEL_CODE = 12  # the first header number
+N_ICON, N_CON, N_STATE, N_VAR, N_RESERVED_ICON = 2, 173, 33, 250, 0
+
 
 def build_perc1_dll_record(bus_number, load_id, params, scope="bus"):
     """Build the PSS/E v34/v35 PERC1 (Power Electronic Load Model) UDM record.
@@ -32,7 +36,8 @@ def build_perc1_dll_record(bus_number, load_id, params, scope="bus"):
     first_field = {"bus": "ibus", "all": "0 (all)"}.get(record_scope.id, f"i{record_scope.id}")
     lines = [f"@! {first_field}  LID  IT"]
     lines.append(
-        f"{bus_number} 'USRLOD' '{load_id}' '{record_scope.model_name('PERC')}' 12 {record_scope.it} 2 173 33 250 0"
+        f"{bus_number} 'USRLOD' '{load_id}' '{record_scope.model_name(FAMILY)}' {MODEL_CODE} {record_scope.it} "
+        f"{N_ICON} {N_CON} {N_STATE} {N_VAR} {N_RESERVED_ICON}"
     )
     lines.append("@! ICON(M) ICON(M+1)  [ICON(M)=0 for 60 Hz, 1 for 50 Hz; ICON(M+1)=1 enables momentary")
     lines.append("@! cessation (Option 2) in place of the undervoltage cease/reconnect (Option 1) used below]")
@@ -46,7 +51,8 @@ def build_perc1_dll_record(bus_number, load_id, params, scope="bus"):
 
 _SCOPE_BY_SUFFIX = {scope.suffix: scope for scope in RECORD_SCOPES.values()}
 _HEADER_RE = re.compile(
-    r"^(\d+)\s+'USRLOD'\s+'([^']+)'\s+'PERC(BL|OW|ZN|AR|AL)'\s+12\s+([1-5])\s+2\s+173\s+33\s+250\s+0\s*$"
+    rf"^(\d+)\s+'USRLOD'\s+'([^']+)'\s+'{FAMILY}(BL|OW|ZN|AR|AL)'\s+{MODEL_CODE}\s+([1-5])\s+{N_ICON}\s+{N_CON}\s+"
+    rf"{N_STATE}\s+{N_VAR}\s+{N_RESERVED_ICON}\s*$"
 )
 
 
@@ -129,9 +135,8 @@ def parse_perc1_dll_record(dyr_text: str, *, load_id: str | None = None) -> dict
 # placeholder word (`IBUS`) and may write the load ID unquoted, so both are accepted here.
 _RECORD_RE = re.compile(
     r"(?P<number>\d+|[A-Za-z]\w*)\s+'USRLOD'\s+(?:'(?P<id>[^']+)'|(?P<bare_id>[^\s'/]+))\s+"
-    r"'PERC(?P<suffix>BL|OW|ZN|AR|AL)'\s+(?P<values>[^/]*)/?")
-_HEADER_FIELDS = (12, None, 2, None, 33, 250, 0)  # model type code, IT, N_ICON, N_CON, N_STATE, N_VAR, N_RESERVED
-N_ICON, N_CON = 2, 173
+    rf"'{FAMILY}(?P<suffix>BL|OW|ZN|AR|AL)'\s+(?P<values>[^/]*)/?")
+_HEADER_FIELDS = (MODEL_CODE, None, N_ICON, None, N_STATE, N_VAR, N_RESERVED_ICON)  # IT and N_CON vary
 # PERC2 V2.3 (PERC2_v3x_v2p3.dll) keeps CON(J)..CON(J+172) unchanged and appends these six (vendor docx, J+173..J+178).
 V2P3_EXTRA_CONS = ("TAQ", "TBQ", "RAMPAMC", "RAMPUAMC", "VLRCMC", "VURCMC")
 _CON_COUNTS = (N_CON, N_CON + len(V2P3_EXTRA_CONS))
@@ -191,3 +196,21 @@ def is_perc1_dll_record(dyr_text: str) -> bool:
     register PERCBL, so the count is the only thing that tells them apart; a header too broken to read counts as
     PERC1's, so the error is reported against the older model."""
     return any(r.get("n_con") != N_CON + len(V2P3_EXTRA_CONS) for r in parse_perc1_dll_records(dyr_text))
+
+
+__all__ = [
+    "FAMILY",
+    "MODEL_CODE",
+    "N_CON",
+    "N_ICON",
+    "N_RESERVED_ICON",
+    "N_STATE",
+    "N_VAR",
+    "V2P3_EXTRA_CONS",
+    "build_perc1_dll_record",
+    "is_perc1_dll_record",
+    "parse_perc1_dll_record",
+    "parse_perc1_dll_record_scope",
+    "parse_perc1_dll_records",
+    "strip_comments",
+]

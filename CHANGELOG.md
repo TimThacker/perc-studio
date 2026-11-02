@@ -18,7 +18,10 @@ build.
 - No model shares code with another. `load_models/common.py` is gone: `flag_on`, `preset_bundle` and the simulator
   time grid are copied into each model that uses them, and `perc2_dll` and `perc2_standard` carry their own copies of
   the PERC1 DLL CON layout, defaults, `.dyr` parser and simulator, and of the PERC1 standard `.dyr` helpers. A test
-  fails if a model package imports another. Nothing a user sees changes: CON names, defaults, `.dyr` text and
+  fails if a model package imports another.
+- The files inside the models share one shape too: the same section order and a closing `__all__` in every file,
+  `CON_NAMES` before `DEFAULT_CONS` before `DISPLAY_FIELDS` in every `cons.py`, the same header constants and
+  `strip_comments` in every `dyr.py`, `flag_on` only in `cons.py`, and the same internal simulator names. Nothing a user sees changes: CON names, defaults, `.dyr` text and
   simulated responses are identical to 1.2.1.
 
 ## 1.2.1 - 2026-10-26

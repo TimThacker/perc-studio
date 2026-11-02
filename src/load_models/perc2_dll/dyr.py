@@ -24,11 +24,11 @@ from .cons import (
     validate_cons,
 )
 
-N_CON = 179
-N_ICON = 2
+FAMILY = "PERC"
+MODEL_CODE = 12  # the first header number
+N_ICON, N_CON, N_STATE, N_VAR, N_RESERVED_ICON = 2, 179, 33, 250, 0
 N_CON_V1 = 173  # CON(J)..CON(J+172) are the PERC1 DLL record's; the six v2.3 CONs follow
 V2P3_EXTRA_CONS = ("TAQ", "TBQ", "RAMPAMC", "RAMPUAMC", "VLRCMC", "VURCMC")
-HEADER = (12, 2, N_CON, 33, 250, 0)  # model type, NICON, NCON, NSTATE, NVAR, reserved; IT goes after the 12
 
 
 def build_perc2_dll_record(number, load_id, cons, scope="bus", *, description=None) -> str:
@@ -42,7 +42,8 @@ def build_perc2_dll_record(number, load_id, cons, scope="bus", *, description=No
     first = {"bus": "ibus", "all": "0 (all)"}.get(sc.id, f"i{sc.id}")
     lines = [f"@! PERC2 DLL v2.3 (PERC2_v3x_v2p3.dll){': ' + description if description else ''}",
              f"@! {first}  LID  IT",
-             f"{number} 'USRLOD' '{load_id}' '{sc.model_name('PERC')}' 12 {sc.it} 2 {N_CON} 33 250 0",
+             (f"{number} 'USRLOD' '{load_id}' '{sc.model_name(FAMILY)}' {MODEL_CODE} {sc.it} {N_ICON} {N_CON} "
+              f"{N_STATE} {N_VAR} {N_RESERVED_ICON}"),
              ("@! ICON(M) ICON(M+1)  [ICON(M): the document's 50 Hz flag, ignored by the DLL; ICON(M+1) = 1 enables "
               "momentary cessation]"),
              f" {int(cons['FREQ50'])} {int(cons['MCFLAG'])}"]
@@ -54,17 +55,17 @@ def build_perc2_dll_record(number, load_id, cons, scope="bus", *, description=No
 
 
 _SCOPE_BY_SUFFIX = {scope.suffix: scope for scope in RECORD_SCOPES.values()}
-_HEADER_FIELDS = (12, None, 2, None, 33, 250, 0)  # model type code, IT, N_ICON, N_CON, N_STATE, N_VAR, N_RESERVED
+_HEADER_FIELDS = (MODEL_CODE, None, N_ICON, None, N_STATE, N_VAR, N_RESERVED_ICON)  # IT and N_CON vary
 # A tolerant reader for files this app did not write (vendor samples, hand-edited or re-wrapped records): the header
 # may be split across lines or comma separated, and the 2 ICONs + 179 CONs are read as one token stream up to the
 # record's closing "/" instead of one row per layout block. Vendor samples also leave the first field as a
 # placeholder word (`IBUS`) and may write the load ID unquoted, so both are accepted here.
 _RECORD_RE = re.compile(
     r"(?P<number>\d+|[A-Za-z]\w*)\s+'USRLOD'\s+(?:'(?P<id>[^']+)'|(?P<bare_id>[^\s'/]+))\s+"
-    r"'PERC(?P<suffix>BL|OW|ZN|AR|AL)'\s+(?P<values>[^/]*)/?")
+    rf"'{FAMILY}(?P<suffix>BL|OW|ZN|AR|AL)'\s+(?P<values>[^/]*)/?")
 
 
-def _strip_comments(text: str) -> str:
+def strip_comments(text: str) -> str:
     return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith(("@!", "//")))
 
 
@@ -72,7 +73,7 @@ def _scan_records(dyr_text: str) -> list[dict]:
     """Every PERC** USRLOD record whose header gives 179 CONs, in file order. A record with any other CON count (a
     PERC1 DLL record) or a header too broken to read is left out; one that is malformed beyond that carries its
     `error` (cons empty) instead of being raised, so one bad record does not hide the others."""
-    text = re.sub(r"'[^']*'|,", lambda m: " " if m.group(0) == "," else m.group(0), _strip_comments(dyr_text))
+    text = re.sub(r"'[^']*'|,", lambda m: " " if m.group(0) == "," else m.group(0), strip_comments(dyr_text))
     records = []
     for match in _RECORD_RE.finditer(text):
         scope = _SCOPE_BY_SUFFIX[match.group("suffix")]
@@ -139,5 +140,19 @@ def parse_perc2_dll_record(dyr_text: str) -> dict:
     return {n: cons[n] for n in CON_NAMES}
 
 
-__all__ = ["CON_ONLY_NAMES", "build_perc2_dll_record", "is_perc2_dll_record", "parse_perc2_dll_record",
-           "parse_perc2_dll_records"]
+__all__ = [
+    "FAMILY",
+    "MODEL_CODE",
+    "N_CON",
+    "N_CON_V1",
+    "N_ICON",
+    "N_RESERVED_ICON",
+    "N_STATE",
+    "N_VAR",
+    "V2P3_EXTRA_CONS",
+    "build_perc2_dll_record",
+    "is_perc2_dll_record",
+    "parse_perc2_dll_record",
+    "parse_perc2_dll_records",
+    "strip_comments",
+]

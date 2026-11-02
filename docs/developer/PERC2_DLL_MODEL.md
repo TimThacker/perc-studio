@@ -97,8 +97,8 @@ cessation), a stage at or below VLBLK with cessation on (the takeover), FRA/VNOM
 
 ## The simulator
 
-`simulation.py` holds its own copy of the PERC1 DLL simulator (the `_record_*` functions). With momentary cessation off it runs on `perc1_equivalent(cons)` (RAMPA/RAMPUA in
-seconds, LFM as the DLL uses it, negative delays as 0). With it on, a v2.3 state machine (`_run_logic`) that adds the two
+`simulation.py` holds its own copy of the PERC1 DLL simulator (`_run_logic`, `_response`, `_voltage_response`, `_frequency_response`). With momentary cessation off it runs on `perc1_equivalent(cons)` (RAMPA/RAMPUA in
+seconds, LFM as the DLL uses it, negative delays as 0). With it on, a v2.3 state machine (`_run_mc_logic`) that adds the two
 cessation "stages" (zero delay, their own band and ramps), keeps the stage timers running during a cessation, and
 marks a takeover (`escalated` in the response); the filters, the power loop and the response shape are the copied
 PERC1 DLL simulator's. Checked against PSS/E on every single-dip case of the library (79, 31 with cessation): first cease, first

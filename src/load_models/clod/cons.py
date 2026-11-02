@@ -1,17 +1,6 @@
 """CLOD (PSS/E composite motor load) CONs, defaults, display fields and archetype derivation."""
 
-
-# Short descriptions shown alongside each CLOD composition parameter -
-# mirrors load_models.perc1_dll.cons.DISPLAY_FIELDS as the single source of truth for both
-# the desktop UI (advanced editor, review table) and the HTML report.
-DISPLAY_FIELDS = (
-    ("PC_LM", "PC_LM — large motor share (big constant-speed motors: chillers, large pumps)"),
-    ("PC_SM", "PC_SM — small motor share (small fans/pumps, fractional-hp motors)"),
-    ("PC_TX", "PC_TX — transformer exciting current share (nearby transformer magnetizing current)"),
-    ("PC_DL", "PC_DL — discharge lighting share (fluorescent/HID lighting)"),
-    ("PC_CP", "PC_CP — constant power share (electronically regulated load)"),
-)
-CON_NAMES = tuple(name for name, _ in DISPLAY_FIELDS)
+CON_NAMES = ("PC_LM", "PC_SM", "PC_TX", "PC_DL", "PC_CP")
 
 
 def derive_clod_params(facility_type, has_lighting):
@@ -51,3 +40,23 @@ def derive_clod_params(facility_type, has_lighting):
 
 # The record's CONs for the default "Mixed" archetype without discharge lighting.
 DEFAULT_CONS = derive_clod_params("Mixed - moderate mix of large & small motors", False)
+
+
+# Short descriptions shown alongside each CLOD composition parameter -
+# mirrors load_models.perc1_dll.cons.DISPLAY_FIELDS as the single source of truth for both
+# the desktop UI (advanced editor, review table) and the HTML report.
+DISPLAY_FIELDS = (
+    ("PC_LM", "PC_LM — large motor share (big constant-speed motors: chillers, large pumps)"),
+    ("PC_SM", "PC_SM — small motor share (small fans/pumps, fractional-hp motors)"),
+    ("PC_TX", "PC_TX — transformer exciting current share (nearby transformer magnetizing current)"),
+    ("PC_DL", "PC_DL — discharge lighting share (fluorescent/HID lighting)"),
+    ("PC_CP", "PC_CP — constant power share (electronically regulated load)"),
+)
+
+
+__all__ = [
+    "CON_NAMES",
+    "DEFAULT_CONS",
+    "DISPLAY_FIELDS",
+    "derive_clod_params",
+]

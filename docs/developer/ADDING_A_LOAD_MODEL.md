@@ -46,6 +46,29 @@ Rules:
   `validate_cons`) in `__all__`. It holds no logic. The one exception is an
   adapter that has to import lazily to avoid a cycle, such as `perc1_dll`'s
   `_result_figure`.
+- **Every file has the same shape.** A module docstring, then
+  `from __future__ import annotations`, imports, constants, private helpers
+  (leading underscore), public functions, and last of all `__all__`, which
+  lists exactly the public names the file defines. A test checks the
+  docstring and `__all__`. Anything else a model exposes beyond the table
+  (for example `perc1_dll`'s `simulate_perc1_dll_event`, which the preview
+  calls) is a public name like any other and goes in `__all__`.
+- **`cons.py` runs in one order:** the names (`ICON_NAMES`, `CON_ONLY_NAMES`
+  where the model has them, then `CON_NAMES`), then `DEFAULT_CONS`, then
+  `DISPLAY_FIELDS`, then the rest (`ConIssue`, `validate_cons` and any
+  helpers). `validate_cons` is optional: a model has one only if PSS/E
+  rejects or silently changes some of its values and that was measured. A PSS/E
+  flag test (`flag_on`) lives here too, and nowhere else in the package.
+- **`dyr.py` starts with the same header constants:** `FAMILY`, `MODEL_CODE`,
+  `N_ICON`, `N_CON`, `N_STATE`, `N_VAR`, `N_RESERVED_ICON` (the numbers in the
+  record header; the writer and the parser both use them, never a literal),
+  and defines `strip_comments(text)`. The scope lookup is a private
+  `_SCOPE_BY_SUFFIX`.
+- **`simulation.py` names its internals the same way:** `_response` is the core
+  that runs one event, `_run_logic` the cease/reconnect state machine, and the
+  public functions are thin wrappers over them. A model with a second path
+  (`perc2_dll`'s momentary cessation) prefixes it: `_run_mc_logic`,
+  `_mc_voltage_response`.
 - **`MODEL` takes the module objects as they are.** Pass `con_names=CON_NAMES`,
   not `tuple(...)` or `dict(...)` copies. The `LoadModel(...)` arguments go in
   the order of the table at the top of this page.

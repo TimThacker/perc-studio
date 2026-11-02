@@ -19,3 +19,9 @@ def cons_for_preset(preset, block_name: str) -> dict:
 def preset_gaps(preset) -> list[str]:
     """What the preset specifies that this model cannot encode: nothing, since the bundles are PERC1 DLL CONs."""
     return []
+
+
+__all__ = [
+    "cons_for_preset",
+    "preset_gaps",
+]

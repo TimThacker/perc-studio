@@ -14,3 +14,8 @@ def build_clod_record(bus_number, load_id, params, scope="bus"):
         f"{params['PC_TX']:.2f}", f"{params['PC_DL']:.2f}", f"{params['PC_CP']:.2f}",
     ]
     return "   " + ", ".join(fields) + "  /"
+
+
+__all__ = [
+    "build_clod_record",
+]

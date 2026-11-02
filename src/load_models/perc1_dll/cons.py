@@ -204,81 +204,6 @@ CON_NAMES = tuple(name for block in DYR_LAYOUT for name in block)
 assert len(CON_NAMES) == 173, f"PERC1 DLL model requires exactly 173 CONs, got {len(CON_NAMES)}"
 assert len(set(CON_NAMES)) == 173, "CON_NAMES has a duplicate CON name"
 
-# The subset of CONs worth surfacing in the UI/report - the core
-# (undervoltage cease/reconnect + ZIP exponent) plus the most
-# commonly hand-tuned secondary settings. Three items per row: the real CON
-# mnemonic, a plain-English label (with units) meant to be the PRIMARY visible
-# text, and a tooltip string (the CON mnemonic, plus its PSS/E-model alias
-# like "Vcease" where one exists) meant to be shown on hover rather than
-# inline - engineers who already know "VDPA" can still find it, but "trip
-# voltage (pu)" is what should catch the eye first. This is the single source
-# of truth for both the advanced editor and the HTML report (see ui/main_window.py,
-# preview/perc1_dll.py). `VDUA`/`TDUA` are channel A's own real overvoltage cease
-# threshold/delay (see FIXED_DEFAULTS's comment) - genuinely part
-# of the DLL variant, confirmed against the vendor sample.
-DISPLAY_FIELDS = (
-    ("VDPA", "Undervoltage stage 1 trip (pu)", "Vcease / VDPA"),
-    ("DMA", "Undervoltage stage 1 delay (s)", "Tcease / DMA"),
-    ("FCEASE", "Fraction that trips", "Fcease / FCEASE"),
-    ("VRPA", "Undervoltage reconnect voltage (pu)", "Vrecon / VRPA"),
-    ("TDRA", "Undervoltage reconnect delay (s)", "Trecon / TDRA"),
-    ("RAMPA", "Undervoltage reconnect ramp (s)", "Tramp / RAMPA"),
-    ("FRECON", "Fraction that reconnects", "Frecon / FRECON"),
-    ("NPA", "Active ZIP exponent (0=P, 1=I, 2=Z)", "NPA"),
-    ("NQA", "Reactive ZIP exponent (0=P, 1=I, 2=Z)", "NQA"),
-    ("TRA", "Numerical filter (s)", "Tt / TRA"),
-    ("VDUA", "Overvoltage stage 1 trip (pu)", "VDUA"),
-    ("TDUA", "Overvoltage stage 1 delay (s)", "TDUA"),
-    ("DROOPA", "Frequency droop", "DROOPA"),
-    ("IPMAXA", "Active current limit (pu)", "IPMAXA"),
-    ("IPMINA", "Active current floor (pu)", "IPMINA"),
-    ("IQMAXA", "Reactive current limit (pu)", "IQMAXA"),
-    ("IQMINA", "Reactive current floor (pu)", "IQMINA"),
-    # Option-3 multi-stage ride-through curve (stages 2-4; stage 1 is
-    # VDPA/DMA and VDUA/TDUA above). Exposed for direct editing since
-    # PSS/E confirmed the compiled DLL always
-    # evaluates all 4 stages - see voltage_stage_cons()'s docstring and
-    # docs/developer/PERC1_MODEL.md's "Option 3 is always live" section. Every preset
-    # in presets/ridethrough.py now populates these from its own real
-    # multi-tier envelope rather than leaving them at the vendor-sample
-    # defaults.
-    *[
-        row
-        for n in (2, 3, 4)
-        for row in (
-            (f"VDPA{n - 1}", f"Undervoltage stage {n} trip (pu)", f"VDPA{n - 1}"),
-            (f"DMA{n - 1}", f"Undervoltage stage {n} delay (s)", f"DMA{n - 1}"),
-        )
-    ],
-    *[
-        row
-        for n in (2, 3, 4)
-        for row in (
-            (f"VDUA{n - 1}", f"Overvoltage stage {n} trip (pu)", f"VDUA{n - 1}"),
-            (f"TDUA{n - 1}", f"Overvoltage stage {n} delay (s)", f"TDUA{n - 1}"),
-        )
-    ],
-    # Overvoltage trips reconnect through their own high-side CONs, not
-    # VRPA/TDRA/RAMPA (vendor documentation; see docs/developer/PERC1_MODEL.md's
-    # "Which reconnect settings apply to which trip").
-    ("VRUPA", "Overvoltage reconnect voltage (pu)", "VRUPA"),
-    ("TRUPA", "Overvoltage reconnect delay (s)", "TRUPA"),
-    ("RAMPUA", "Overvoltage reconnect ramp (s)", "RAMPUA"),
-    # Frequency trip/reconnect: the vendor data sheet uses only CONs J+120 to
-    # J+129 (the "1"-suffixed set) and marks every stage-2-4 frequency CON
-    # (J+130 to J+159) "NOT USED" - one frequency stage per direction, unlike
-    # voltage's four.
-    ("FUFTP1", "Frequency deadband low (Hz)", "FUFTP1"),
-    ("TUFTP1", "Trip delay below deadband (s)", "TUFTP1"),
-    ("FUFRN1", "Under-frequency reconnect frequency (Hz)", "FUFRN1"),
-    ("TUFRN1", "Under-frequency reconnect delay (s)", "TUFRN1"),
-    ("RUFRN1", "Under-frequency reconnect ramp (s)", "RUFRN1"),
-    ("FOFTP1", "Frequency deadband high (Hz)", "FOFTP1"),
-    ("TOFTP1", "Trip delay above deadband (s)", "TOFTP1"),
-    ("FOFRN1", "Over-frequency reconnect frequency (Hz)", "FOFRN1"),
-    ("TOFRN1", "Over-frequency reconnect delay (s)", "TOFRN1"),
-    ("ROFRN1", "Over-frequency reconnect ramp (s)", "ROFRN1"),
-)
 ZIP_FIELDS = {"NPA", "NQA"}
 
 # The frequency trip/reconnect CONs the model actually uses - the vendor data
@@ -359,6 +284,83 @@ DEFAULT_CONS.update(voltage_stage_cons(
 ))
 
 
+# The subset of CONs worth surfacing in the UI/report - the core
+# (undervoltage cease/reconnect + ZIP exponent) plus the most
+# commonly hand-tuned secondary settings. Three items per row: the real CON
+# mnemonic, a plain-English label (with units) meant to be the PRIMARY visible
+# text, and a tooltip string (the CON mnemonic, plus its PSS/E-model alias
+# like "Vcease" where one exists) meant to be shown on hover rather than
+# inline - engineers who already know "VDPA" can still find it, but "trip
+# voltage (pu)" is what should catch the eye first. This is the single source
+# of truth for both the advanced editor and the HTML report (see ui/main_window.py,
+# preview/perc1_dll.py). `VDUA`/`TDUA` are channel A's own real overvoltage cease
+# threshold/delay (see FIXED_DEFAULTS's comment) - genuinely part
+# of the DLL variant, confirmed against the vendor sample.
+DISPLAY_FIELDS = (
+    ("VDPA", "Undervoltage stage 1 trip (pu)", "Vcease / VDPA"),
+    ("DMA", "Undervoltage stage 1 delay (s)", "Tcease / DMA"),
+    ("FCEASE", "Fraction that trips", "Fcease / FCEASE"),
+    ("VRPA", "Undervoltage reconnect voltage (pu)", "Vrecon / VRPA"),
+    ("TDRA", "Undervoltage reconnect delay (s)", "Trecon / TDRA"),
+    ("RAMPA", "Undervoltage reconnect ramp (s)", "Tramp / RAMPA"),
+    ("FRECON", "Fraction that reconnects", "Frecon / FRECON"),
+    ("NPA", "Active ZIP exponent (0=P, 1=I, 2=Z)", "NPA"),
+    ("NQA", "Reactive ZIP exponent (0=P, 1=I, 2=Z)", "NQA"),
+    ("TRA", "Numerical filter (s)", "Tt / TRA"),
+    ("VDUA", "Overvoltage stage 1 trip (pu)", "VDUA"),
+    ("TDUA", "Overvoltage stage 1 delay (s)", "TDUA"),
+    ("DROOPA", "Frequency droop", "DROOPA"),
+    ("IPMAXA", "Active current limit (pu)", "IPMAXA"),
+    ("IPMINA", "Active current floor (pu)", "IPMINA"),
+    ("IQMAXA", "Reactive current limit (pu)", "IQMAXA"),
+    ("IQMINA", "Reactive current floor (pu)", "IQMINA"),
+    # Option-3 multi-stage ride-through curve (stages 2-4; stage 1 is
+    # VDPA/DMA and VDUA/TDUA above). Exposed for direct editing since
+    # PSS/E confirmed the compiled DLL always
+    # evaluates all 4 stages - see voltage_stage_cons()'s docstring and
+    # docs/developer/PERC1_MODEL.md's "Option 3 is always live" section. Every preset
+    # in presets/ridethrough.py now populates these from its own real
+    # multi-tier envelope rather than leaving them at the vendor-sample
+    # defaults.
+    *[
+        row
+        for n in (2, 3, 4)
+        for row in (
+            (f"VDPA{n - 1}", f"Undervoltage stage {n} trip (pu)", f"VDPA{n - 1}"),
+            (f"DMA{n - 1}", f"Undervoltage stage {n} delay (s)", f"DMA{n - 1}"),
+        )
+    ],
+    *[
+        row
+        for n in (2, 3, 4)
+        for row in (
+            (f"VDUA{n - 1}", f"Overvoltage stage {n} trip (pu)", f"VDUA{n - 1}"),
+            (f"TDUA{n - 1}", f"Overvoltage stage {n} delay (s)", f"TDUA{n - 1}"),
+        )
+    ],
+    # Overvoltage trips reconnect through their own high-side CONs, not
+    # VRPA/TDRA/RAMPA (vendor documentation; see docs/developer/PERC1_MODEL.md's
+    # "Which reconnect settings apply to which trip").
+    ("VRUPA", "Overvoltage reconnect voltage (pu)", "VRUPA"),
+    ("TRUPA", "Overvoltage reconnect delay (s)", "TRUPA"),
+    ("RAMPUA", "Overvoltage reconnect ramp (s)", "RAMPUA"),
+    # Frequency trip/reconnect: the vendor data sheet uses only CONs J+120 to
+    # J+129 (the "1"-suffixed set) and marks every stage-2-4 frequency CON
+    # (J+130 to J+159) "NOT USED" - one frequency stage per direction, unlike
+    # voltage's four.
+    ("FUFTP1", "Frequency deadband low (Hz)", "FUFTP1"),
+    ("TUFTP1", "Trip delay below deadband (s)", "TUFTP1"),
+    ("FUFRN1", "Under-frequency reconnect frequency (Hz)", "FUFRN1"),
+    ("TUFRN1", "Under-frequency reconnect delay (s)", "TUFRN1"),
+    ("RUFRN1", "Under-frequency reconnect ramp (s)", "RUFRN1"),
+    ("FOFTP1", "Frequency deadband high (Hz)", "FOFTP1"),
+    ("TOFTP1", "Trip delay above deadband (s)", "TOFTP1"),
+    ("FOFRN1", "Over-frequency reconnect frequency (Hz)", "FOFRN1"),
+    ("TOFRN1", "Over-frequency reconnect delay (s)", "TOFRN1"),
+    ("ROFRN1", "Over-frequency reconnect ramp (s)", "ROFRN1"),
+)
+
+
 def frequency_stage_cons(underfrequency_stage, overfrequency_stage, *,
                          reconnect_low_hz, reconnect_high_hz) -> dict:
     """Write one (frequency_hz, delay_s) under-frequency and one over-frequency
@@ -374,3 +376,20 @@ def frequency_stage_cons(underfrequency_stage, overfrequency_stage, *,
         "FUFTP1": uf_hz, "TUFTP1": uf_delay, "FUFRN1": reconnect_low_hz,
         "FOFTP1": of_hz, "TOFTP1": of_delay, "FOFRN1": reconnect_high_hz,
     }
+
+
+__all__ = [
+    "CON_NAMES",
+    "DEFAULT_CONS",
+    "DISPLAY_FIELDS",
+    "DYR_LAYOUT",
+    "FIXED_DEFAULTS",
+    "OVERFREQUENCY_RECONNECT_CONS",
+    "OVERFREQUENCY_TRIP_CONS",
+    "UNDERFREQUENCY_RECONNECT_CONS",
+    "UNDERFREQUENCY_TRIP_CONS",
+    "ZIP_EXPONENT_MAP",
+    "ZIP_FIELDS",
+    "frequency_stage_cons",
+    "voltage_stage_cons",
+]
