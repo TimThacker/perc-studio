@@ -1,15 +1,15 @@
 """Contract tests every registered load model must pass, plus an end-to-end
-run of the developer loop on a non-PERC1 model.
+run of the developer loop on every model that can mock-run and encode presets.
 
 A newly added model is picked up here automatically through
 `load_models.LOAD_MODELS` - no new test code is needed to check that it is
 internally consistent and round-trips through `.dyr` export.
 """
 
+import importlib
 import json
 
 import pytest
-from fixtures.example_load_model import MODEL as EXAMPLE_MODEL
 
 from dev.cli.main import cli
 from dev.validation.case_model import (
@@ -32,8 +32,10 @@ from load_models import (
 )
 from psse.runner import FaultScenario, MockPsseRunner
 
-ALL_MODELS = [*LOAD_MODELS.values(), EXAMPLE_MODEL]
+ALL_MODELS = list(LOAD_MODELS.values())
 _ids = [model.id for model in ALL_MODELS]
+# The models the developer loop (case from a preset, export, mock run, sweep, CLI) applies to.
+RUNNABLE = [m for m in ALL_MODELS if m.can_run_mock and m.supports_presets]
 
 FACILITY = FacilityInfo(name="Test", bus_number=101, bus_name="BUS_101", use_case="AI Training",
                         use_case_pct=100, total_mw=300.0, power_factor=0.99)
@@ -58,8 +60,7 @@ def test_display_fields_name_real_cons(model):
 
 
 @pytest.mark.parametrize("model", ALL_MODELS, ids=_ids)
-def test_dyr_record_names_the_model(model, monkeypatch):
-    monkeypatch.setitem(LOAD_MODELS, model.id, model)
+def test_dyr_record_names_the_model(model):
     text = model.build_dyr_record(101, "1", model.default_cons)
     assert f"'{model.dyr_model_name}'" in text
     assert find_model_for_dyr(text) is model
@@ -99,6 +100,36 @@ def test_cons_for_preset_covers_every_con(model):
         assert set(cons) == set(model.con_names), preset.id
 
 
+# --- Package layout: every built-in model ------------------------------------
+
+
+@pytest.mark.parametrize("model", list(LOAD_MODELS.values()), ids=lambda m: m.id)
+def test_builtin_model_follows_the_package_layout(model):
+    """Each built-in model's MODEL is wired from the same module names as every other one
+    (docs/developer/ADDING_A_LOAD_MODEL.md, "Package layout")."""
+    package = f"load_models.{model.id}"
+    cons, dyr = importlib.import_module(f"{package}.cons"), importlib.import_module(f"{package}.dyr")
+    assert model.con_names is cons.CON_NAMES and isinstance(cons.CON_NAMES, tuple)
+    assert model.default_cons is cons.DEFAULT_CONS
+    assert model.display_fields is cons.DISPLAY_FIELDS and isinstance(cons.DISPLAY_FIELDS, tuple)
+    assert model.build_dyr_record is getattr(dyr, f"build_{model.id}_record")
+    if model.parse_dyr_record:
+        assert model.parse_dyr_record is getattr(dyr, f"parse_{model.id}_record")
+        assert callable(getattr(dyr, f"parse_{model.id}_records"))
+    if model.matches_dyr:
+        assert model.matches_dyr is getattr(dyr, f"is_{model.id}_record")
+    if model.simulate:
+        simulation = importlib.import_module(f"{package}.simulation")
+        assert model.simulate is getattr(simulation, f"simulate_{model.id}_response")
+    if model.simulate_frequency:
+        assert model.simulate_frequency is getattr(simulation, f"simulate_{model.id}_frequency_response")
+    if model.cons_for_preset:
+        presets = importlib.import_module(f"{package}.presets")
+        assert model.cons_for_preset is presets.cons_for_preset
+        assert callable(presets.preset_gaps)
+    assert "MODEL" in importlib.import_module(package).__all__
+
+
 # --- Registry ----------------------------------------------------------------
 
 
@@ -117,38 +148,45 @@ def test_unknown_model_lists_registered_ids():
         get_load_model("nope")
 
 
-# --- The developer loop on a non-PERC1 model -------------------------------
+# --- The developer loop on every model that can mock-run -------------------
 
 
-def test_defaults_case_exports_validates_and_overrides(example_model):
-    case = case_from_model_defaults(example_model.id, facility=FACILITY, load_composition=LOAD)
+@pytest.mark.parametrize("model", RUNNABLE, ids=lambda m: m.id)
+def test_defaults_case_exports_validates_and_overrides(model):
+    case = case_from_model_defaults(model.id, facility=FACILITY, load_composition=LOAD)
     assert schema_problems(case) == []
-    assert "'STPTRP'" in block_dyr_record(case, "it", "1")
+    assert f"'{model.dyr_model_name}'" in block_dyr_record(case, "it", "1")
 
-    case = case_with_overrides(case, "it", {"VUV": 0.5})
-    assert case.it_block.cons["VUV"] == 0.5
-    with pytest.raises(ValueError, match="VDPA"):
-        case_with_overrides(case, "it", {"VDPA": 0.5})  # a PERC1 CON, not this model's
+    name = model.con_names[0]
+    case = case_with_overrides(case, "it", {name: model.default_cons[name] + 0.25})
+    assert case.it_block.cons[name] == model.default_cons[name] + 0.25
+    with pytest.raises(ValueError, match="NO_SUCH_CON"):
+        case_with_overrides(case, "it", {"NO_SUCH_CON": 0.5})
 
     assert from_json(to_json(case)) == case
 
 
-def test_mock_runner_dispatches_to_the_records_own_model(example_model):
+@pytest.mark.parametrize("model", RUNNABLE, ids=lambda m: m.id)
+def test_mock_runner_dispatches_to_the_records_own_model(model):
     case = case_from_preset("ercot_nogrr282", facility=FACILITY, load_composition=LOAD,
-                            model_id=example_model.id, include_vfd=False, include_motor=False)
+                            model_id=model.id, include_vfd=False, include_motor=False)
     dyr_text = block_dyr_record(case, "it", "1")
+    runner = MockPsseRunner()
     deep_long_sag = FaultScenario(id="deep", fault_start_s=0.5, fault_duration_s=3.0, fault_voltage_pu=0.5)
+    shallow_sag = FaultScenario(id="shallow", fault_start_s=0.5, fault_duration_s=0.1, fault_voltage_pu=0.95)
 
-    result = MockPsseRunner().run(None, dyr_text, deep_long_sag, block_name="it", case_id=case.case_id)
+    deep = runner.run(None, dyr_text, deep_long_sag, block_name="it", case_id=case.case_id)
+    shallow = runner.run(None, dyr_text, shallow_sag, block_name="it", case_id=case.case_id)
 
-    assert result.tripped
-    assert result.metadata["model_id"] == example_model.id
+    assert deep.tripped and not shallow.tripped
+    assert deep.metadata["model_id"] == model.id
 
 
-def test_sweep_runs_a_non_perc1_model_end_to_end(example_model, tmp_path):
+@pytest.mark.parametrize("model", RUNNABLE, ids=lambda m: m.id)
+def test_sweep_runs_end_to_end(model, tmp_path):
     spec = {
-        "sweep_id": "example_model_sweep",
-        "model": example_model.id,
+        "sweep_id": "model_sweep",
+        "model": model.id,
         "presets": ["ercot_nogrr282"],
         "scenarios": [
             {"id": "deep_long_sag", "fault_start_s": 0.5, "fault_duration_s": 3.0, "fault_voltage_pu": 0.5},
@@ -160,7 +198,7 @@ def test_sweep_runs_a_non_perc1_model_end_to_end(example_model, tmp_path):
     assert summary["total_cases"] == 2
     assert summary["all_passed"], summary
     case_files = [p for p in (tmp_path / "cases").iterdir() if p.suffix == ".json"]
-    assert json.loads(case_files[0].read_text())["it_block"]["model_id"] == example_model.id
+    assert json.loads(case_files[0].read_text())["it_block"]["model_id"] == model.id
 
 
 def test_sweep_rejects_a_model_that_cannot_encode_presets(tmp_path):
@@ -169,23 +207,127 @@ def test_sweep_rejects_a_model_that_cannot_encode_presets(tmp_path):
         run_sweep(spec, str(tmp_path), runner=MockPsseRunner())
 
 
-def test_cli_lists_models_and_builds_a_defaults_case(example_model, cli_runner, tmp_path):
+def test_cli_lists_every_model(cli_runner):
     listed = json.loads(cli_runner.invoke(cli, ["models", "list"]).output)
-    assert {m["id"] for m in listed["data"]["models"]} >= {"perc1_dll", "clod", example_model.id}
+    assert {m["id"] for m in listed["data"]["models"]} == set(LOAD_MODELS)
 
     shown = json.loads(cli_runner.invoke(cli, ["models", "show", "clod"]).output)
     assert shown["data"]["con_names"] == ["PC_LM", "PC_SM", "PC_TX", "PC_DL", "PC_CP"]
     assert shown["data"]["capabilities"]["mock_run"] is False
 
+    unknown = cli_runner.invoke(cli, ["params", "generate", "--source", "defaults", "--model", "nope"])
+    assert unknown.exit_code == 2
+
+
+@pytest.mark.parametrize("model", RUNNABLE, ids=lambda m: m.id)
+def test_cli_builds_validates_and_runs_a_defaults_case(model, cli_runner, tmp_path):
     out = str(tmp_path / "case.json")
-    result = cli_runner.invoke(cli, ["params", "generate", "--source", "defaults", "--model", example_model.id,
+    result = cli_runner.invoke(cli, ["params", "generate", "--source", "defaults", "--model", model.id,
                                      "--out", out])
     assert result.exit_code == 0, result.output
     assert cli_runner.invoke(cli, ["params", "validate", out]).exit_code == 0
 
-    ran = cli_runner.invoke(cli, ["run", out, "--fault-duration-s", "0.5", "--fault-voltage-pu", "0.5"])
+    ran = cli_runner.invoke(cli, ["run", out, "--fault-duration-s", "3", "--fault-voltage-pu", "0.3"])
     assert ran.exit_code == 0, ran.output
     assert json.loads(ran.output)["data"]["result"]["tripped"] is True
 
-    unknown = cli_runner.invoke(cli, ["params", "generate", "--source", "defaults", "--model", "nope"])
-    assert unknown.exit_code == 2
+
+def test_builtin_models_import_nothing_from_each_other():
+    """Each model is defined in full in its own package (docs/developer/ADDING_A_LOAD_MODEL.md, "Package layout"):
+    the only thing a model package imports from `load_models` is `base`, the contract."""
+    import ast
+    import pathlib
+
+    import load_models
+
+    root = pathlib.Path(load_models.__file__).parent
+    allowed_siblings = {"base"}
+    for model in LOAD_MODELS.values():
+        for path in (root / model.id).glob("*.py"):
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf8"))):
+                if isinstance(node, ast.ImportFrom):
+                    names = [node.module or ""]
+                    level, module = node.level, node.module or ""
+                    if level == 1 and not module:  # `from . import x`
+                        names = [a.name for a in node.names]
+                    elif level == 2:  # `from ..x import y` reaches into load_models
+                        names = [module.split(".")[0] or node.names[0].name]
+                    elif level == 0 and module.startswith("load_models."):
+                        names = [module.split(".")[1]]
+                        level = 2
+                    if level == 2:
+                        assert names[0] in allowed_siblings, f"{path.name} in {model.id} imports {names[0]}"
+                elif isinstance(node, ast.Import):
+                    for alias in node.names:
+                        assert not alias.name.startswith("load_models."), f"{path.name} in {model.id}: {alias.name}"
+
+
+# --- Module structure: every built-in model's cons/dyr/presets/simulation file -----
+
+
+def _model_modules():
+    """(model id, file name, path, parsed tree) for every cons/dyr/presets/simulation file of every built-in model."""
+    import ast
+    import pathlib
+
+    import load_models
+
+    root = pathlib.Path(load_models.__file__).parent
+    for model in LOAD_MODELS.values():
+        for name in ("cons", "dyr", "presets", "simulation"):
+            path = root / model.id / f"{name}.py"
+            if path.exists():
+                yield model.id, name, path, ast.parse(path.read_text(encoding="utf8"))
+
+
+def _top_level_names(tree):
+    """Name -> line number of every module-level def, class and assignment target."""
+    import ast
+
+    names = {}
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+            names.setdefault(node.name, node.lineno)
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                for el in target.elts if isinstance(target, ast.Tuple) else [target]:
+                    if isinstance(el, ast.Name):
+                        names.setdefault(el.id, node.lineno)
+    return names
+
+
+def test_model_modules_have_a_docstring_and_end_with_an_exact_all():
+    """Every file opens with a docstring and closes with `__all__`, which lists exactly the public names it defines."""
+    import ast
+
+    for model_id, name, path, tree in _model_modules():
+        label = f"{model_id}/{name}.py"
+        assert ast.get_docstring(tree), f"{label} has no module docstring"
+        last = tree.body[-1]
+        assert isinstance(last, ast.Assign) and last.targets[0].id == "__all__", f"{label} must end with __all__"
+        listed = [el.value for el in last.value.elts]
+        public = [n for n in _top_level_names(tree) if not n.startswith("_") and n != "__all__"]
+        assert sorted(listed) == sorted(public), f"{label}: __all__ differs from its public names"
+
+
+def test_cons_modules_define_names_then_defaults_then_display_fields_in_that_order():
+    lines = {model_id: _top_level_names(tree) for model_id, name, _p, tree in _model_modules() if name == "cons"}
+    for model_id, names in lines.items():
+        assert names["CON_NAMES"] < names["DEFAULT_CONS"] < names["DISPLAY_FIELDS"], model_id
+
+
+def test_dyr_modules_share_the_header_constants_and_comment_stripper():
+    for model_id, name, _path, tree in _model_modules():
+        if name != "dyr" or model_id == "clod":
+            continue
+        names = _top_level_names(tree)
+        for required in ("FAMILY", "MODEL_CODE", "N_ICON", "N_CON", "N_STATE", "N_VAR", "N_RESERVED_ICON",
+                         "strip_comments"):
+            assert required in names, f"{model_id}/dyr.py does not define {required}"
+
+
+def test_flag_on_is_defined_only_in_cons():
+    for model_id, name, _path, tree in _model_modules():
+        if name != "cons":
+            assert "flag_on" not in _top_level_names(tree), f"{model_id}/{name}.py defines its own flag_on"

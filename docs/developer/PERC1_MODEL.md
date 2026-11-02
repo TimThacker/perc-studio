@@ -87,7 +87,7 @@ for exactly how it works and a worked example.
 ### What's in the DLL variant's 173 CONs that this app doesn't drive
 
 This app only ever varies Option 1's channel-A CONs per facility. Everything
-else in the 173-CON layout (`src/load_models/perc1_dll/cons.py`'s `PERC1_DYR_LAYOUT`) is
+else in the 173-CON layout (`src/load_models/perc1_dll/cons.py`'s `DYR_LAYOUT`) is
 still written to every `.dyr` record - PSS/E requires the full CON array
 regardless - just held at a fixed, vendor-typical value. For anyone reading
 a generated `.dyr` file who wonders what the rest of it is:
@@ -104,7 +104,7 @@ a generated `.dyr` file who wonders what the rest of it is:
   vendor spec supports representing up to four independently-parameterized
   load fractions within one PERC1 instance, but this app instead represents
   each load block as its own separate PERC1 model instance -
-  `build_perc1_dyr_block` is called once per block (IT, VFD) with a distinct
+  `build_perc1_dll_record` is called once per block (IT, VFD) with a distinct
   load ID, each writing its own complete 173-CON record - so the
   multi-channel feature is simply never exercised.
 - **`ZETAA`/`WNAA`/`ZETAB`/`WNAB`/`ZETAC`/`WNAC`/`ZETAD`/`WNAD`.** A
@@ -170,7 +170,7 @@ a generated `.dyr` file who wonders what the rest of it is:
   `presets/ridethrough.py`'s preset bundles populate the real 4-stage table
   from that standard's own published envelope (see
   [`docs/user/presets/README.md`](../user/presets/README.md#how-a-multi-tier-standard-becomes-a-full-multi-stage-psse-con-table)),
-  and the model's default parameters (`PERC1_DEFAULT_CONS`) repeat their
+  and the model's default parameters (`DEFAULT_CONS`) repeat their
   one point into every stage instead - a repeated stage fires at the exact
   same time as the tier it copies, so it cannot introduce a different,
   earlier trip (this exact pattern is what probe 3 above validates). The 12 stage CONs are also now
@@ -228,7 +228,7 @@ a generated `.dyr` file who wonders what the rest of it is:
   simulation itself (panels 1-2, voltage(t)/power(t) - and the
   `MockPsseRunner` CLI/sweep path, which delegates to the same function)
   evaluates all 4 stages too, not just stage 1:
-  `load_models.perc1_dll.simulation.simulate_perc1_response` treats every stage the fault's depth
+  `load_models.perc1_dll.simulation.simulate_perc1_dll_response` treats every stage the fault's depth
   crosses as an independently-timed trip condition counting down from the
   same fault onset, exactly mirroring the real DLL's independent per-stage
   timers confirmed above, so a preset whose stage 2 has a shorter dwell than
@@ -272,7 +272,7 @@ a generated `.dyr` file who wonders what the rest of it is:
   region beyond each delay.
 
   The live chart simulates frequency events (the "Frequency event" toggle):
-  `simulate_perc1_frequency_response()` evaluates the stage-1 trip point per
+  `simulate_perc1_dll_frequency_response()` evaluates the stage-1 trip point per
   direction on the `TFRQ`-filtered frequency, applies `FCEASE`/`FRECON` to a
   frequency trip, and applies `DROOPA` droop while the block is online (all
   confirmed in PSS/E; see [Measured runtime behavior](#measured-runtime-behavior)).
@@ -474,7 +474,7 @@ field name below is the model's actual PSS/E CON mnemonic - not a simplified
 alias - so a value shown in the app's parameter rows or HTML report maps
 directly onto a specific position in the exported `.dyr` record.
 
-| CON | Plain-English name | What it does | Default (`PERC1_DEFAULT_CONS`) |
+| CON | Plain-English name | What it does | Default (`DEFAULT_CONS`) |
 |---|---|---|---|
 | `VDPA` | Vcease | Trip voltage (pu) - block begins ceasing below this terminal voltage. | 0.70 |
 | `DMA` | Tcease | Trip delay (s) - how long voltage must stay below `VDPA` before the block ceases. | 0.02 |
@@ -498,12 +498,12 @@ row's "Overvoltage reconnect" section) the same way `VRPA`/`TDRA`/`RAMPA` pairs 
 `VDPA`/`DMA`. The live-preview simulation reconnects an overvoltage trip on
 `TRUPA`/`RAMPUA`, inside the `VRPA` < V < `VRUPA` window, as PSS/E does. The
 full set of CONs this app is aware of for the DLL variant - all 173, in exact
-model order - lives in `src/load_models/perc1_dll/cons.py` as `PERC1_CON_ORDER`.
+model order - lives in `src/load_models/perc1_dll/cons.py` as `CON_NAMES`.
 
 ### Defaults, operating mode and presets
 
-- **Defaults.** A new block starts from `PERC1_DEFAULT_CONS`
-  (`src/load_models/perc1_dll/cons.py`): `PERC1_FIXED_DEFAULTS` plus the
+- **Defaults.** A new block starts from `DEFAULT_CONS`
+  (`src/load_models/perc1_dll/cons.py`): `FIXED_DEFAULTS` plus the
   table above, which is the generic Standard (ITIC/CBEMA) tier for a
   double-conversion UPS that trips fully and reconnects in stages.
 - **UPS operating mode / VFD front-end type** sets the ZIP exponent
@@ -597,7 +597,7 @@ every slider or advanced-CON-field change:
    reconnect boundary (`VRPA`), so both trip directions are visible at once.
 2. **Power output vs. time** - the resulting fraction of block MW online,
    showing the trip (if any, and which direction and which of the 4 stages
-   caused it) and the reconnect ramp. `load_models.perc1_dll.simulation.simulate_perc1_response`
+   caused it) and the reconnect ramp. `load_models.perc1_dll.simulation.simulate_perc1_dll_response`
    evaluates all 4 undervoltage and all 4 overvoltage stages, exactly the
    way the compiled DLL does (see [Option 3 is always live](#option-3-is-always-live)): for this
    app's single constant-depth fault shape, every stage the fault's depth
@@ -619,7 +619,7 @@ every slider or advanced-CON-field change:
    simply hasn't been held long enough, the caption states the exact
    requirement (`"rides through (would trip after 2.00s held)"`) and a
    dashed amber reference line marks where the trip would occur if the fault
-   were held that long (`load_models.perc1_dll.simulation.simulate_perc1_response`'s
+   were held that long (`load_models.perc1_dll.simulation.simulate_perc1_dll_response`'s
    `armed_required_delay_s`).
 3. **Trip threshold vs. ride-through envelope** - compares all 4 of this
    block's undervoltage stage points and all 4 overvoltage stage points

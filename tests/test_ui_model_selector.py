@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QApplication
 from export.dyr import build_dyr_text
 from export.report import build_html_report
 from load_models import get_load_model
-from load_models.perc1_dll.cons import PERC1_DISPLAY_FIELDS
+from load_models.perc1_dll.cons import DISPLAY_FIELDS as PERC1_DISPLAY_FIELDS
 from load_models.perc1_standard.cons import CON_NAMES
 from presets.ridethrough import RIDE_THROUGH_PRESETS
 

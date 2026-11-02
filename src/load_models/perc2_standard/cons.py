@@ -18,7 +18,14 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from ..common import flag_on
+
+def flag_on(cons, name) -> bool:
+    """PSS/E enables a check only for a flag of exactly 1 (sheet note 7, confirmed for 2 and -1)."""
+    try:
+        return round(float(cons[name])) == 1
+    except (KeyError, TypeError, ValueError):
+        return False
+
 
 ICON_NAMES = ("VLMflag", "VHMflag", "VLLflag", "VLHflag", "FLflag", "FHflag")
 
@@ -366,3 +373,29 @@ def validate_cons(cons, time_step_s: float = DEFAULT_TIME_STEP_S, initial_voltag
     if c["dbfh"] < 0:
         warn("dbfh", "the upper deadband edge should be >= 0")
     return issues
+
+
+__all__ = [
+    "BROKEN_LONG_POINT",
+    "CON_NAMES",
+    "CON_ONLY_NAMES",
+    "CON_SPECS",
+    "DEFAULT_CONS",
+    "DEFAULT_TIME_STEP_S",
+    "DISPLAY_FIELDS",
+    "ICON_NAMES",
+    "NOMINAL_HZ",
+    "PERC1_STANDARD_ANALOGS",
+    "POST_FAULT_PEAK_WARN_PU",
+    "TDELAY_NOTE",
+    "WORKING_LONG_POINTS",
+    "ConIssue",
+    "ConSpec",
+    "effective_ldfact",
+    "effective_limits",
+    "flag_on",
+    "long_time_point",
+    "post_fault_peak_pu",
+    "post_fault_peak_warning",
+    "validate_cons",
+]

@@ -1,7 +1,7 @@
 import pytest
 
-from load_models.perc1_dll.cons import PERC1_FIXED_DEFAULTS
-from load_models.perc1_dll.dyr import build_perc1_dyr_block
+from load_models.perc1_dll.cons import FIXED_DEFAULTS as PERC1_FIXED_DEFAULTS
+from load_models.perc1_dll.dyr import build_perc1_dll_record
 from psse.runner import FaultScenario, MockPsseRunner, SimulationResult, get_runner
 
 
@@ -10,7 +10,7 @@ def _dyr_text(**overrides):
     params.update({"VDPA": 0.70, "DMA": 0.02, "FCEASE": 1.0, "VRPA": 0.90, "TDRA": 60.0, "RAMPA": 30.0,
                    "FRECON": 1.0, "NPA": 0, "NQA": 0, "TRA": 0.02, "VDUA": 1.10, "TDUA": 0.5})
     params.update(overrides)
-    return build_perc1_dyr_block(101, "I1", params)
+    return build_perc1_dll_record(101, "I1", params)
 
 
 def assert_runner_contract(runner):

@@ -1,6 +1,6 @@
 """PERC1 (DLL) .dyr record writer and its exact inverse parser.
 
-`parse_perc1_dyr_block` exists so the mock runner is exercised against the
+`parse_perc1_dll_record` exists so the mock runner is exercised against the
 exact `.dyr` text a real PSS/E run would consume, instead of a shortcut
 params dict that could silently diverge from what actually gets exported.
 """
@@ -10,16 +10,20 @@ from __future__ import annotations
 import re
 
 from ..base import RECORD_SCOPES, format_con, get_record_scope, validate_load_id
-from .cons import PERC1_CON_ORDER, PERC1_DYR_LAYOUT, PERC1_ZIP_FIELDS
+from .cons import CON_NAMES, DYR_LAYOUT, ZIP_FIELDS
+
+FAMILY = "PERC"
+MODEL_CODE = 12  # the first header number
+N_ICON, N_CON, N_STATE, N_VAR, N_RESERVED_ICON = 2, 173, 33, 250, 0
 
 
-def build_perc1_dyr_block(bus_number, load_id, params, scope="bus"):
+def build_perc1_dll_record(bus_number, load_id, params, scope="bus"):
     """Build the PSS/E v34/v35 PERC1 (Power Electronic Load Model) UDM record.
 
     Matches the vendor data sheet exactly: model name 'PERC**' with ** set by
     `scope` (BL bus, OW owner, ZN zone, AR area, AL all), fixed header
     ``12, IT, 2, 173, 33, 250, 0`` with IT = 1-5 for the same scopes, 2 ICONs,
-    and CON(J) through CON(J+172) - 173 values in ``PERC1_DYR_LAYOUT`` order,
+    and CON(J) through CON(J+172) - 173 values in ``DYR_LAYOUT`` order,
     one "@!" comment row per named group exactly as the vendor's example file
     groups them. `bus_number` is the record's first field: the bus number for
     a bus-scoped record, otherwise the owner/zone/area number (0 for all) -
@@ -32,12 +36,13 @@ def build_perc1_dyr_block(bus_number, load_id, params, scope="bus"):
     first_field = {"bus": "ibus", "all": "0 (all)"}.get(record_scope.id, f"i{record_scope.id}")
     lines = [f"@! {first_field}  LID  IT"]
     lines.append(
-        f"{bus_number} 'USRLOD' '{load_id}' '{record_scope.model_name('PERC')}' 12 {record_scope.it} 2 173 33 250 0"
+        f"{bus_number} 'USRLOD' '{load_id}' '{record_scope.model_name(FAMILY)}' {MODEL_CODE} {record_scope.it} "
+        f"{N_ICON} {N_CON} {N_STATE} {N_VAR} {N_RESERVED_ICON}"
     )
     lines.append("@! ICON(M) ICON(M+1)  [ICON(M)=0 for 60 Hz, 1 for 50 Hz; ICON(M+1)=1 enables momentary")
     lines.append("@! cessation (Option 2) in place of the undervoltage cease/reconnect (Option 1) used below]")
     lines.append(" 0 0")
-    for block in PERC1_DYR_LAYOUT:
+    for block in DYR_LAYOUT:
         lines.append("@! " + " ".join(block))
         lines.append(" " + " ".join(format_con(params[name]) for name in block))
     lines[-1] = lines[-1] + "/"
@@ -46,11 +51,12 @@ def build_perc1_dyr_block(bus_number, load_id, params, scope="bus"):
 
 _SCOPE_BY_SUFFIX = {scope.suffix: scope for scope in RECORD_SCOPES.values()}
 _HEADER_RE = re.compile(
-    r"^(\d+)\s+'USRLOD'\s+'([^']+)'\s+'PERC(BL|OW|ZN|AR|AL)'\s+12\s+([1-5])\s+2\s+173\s+33\s+250\s+0\s*$"
+    rf"^(\d+)\s+'USRLOD'\s+'([^']+)'\s+'{FAMILY}(BL|OW|ZN|AR|AL)'\s+{MODEL_CODE}\s+([1-5])\s+{N_ICON}\s+{N_CON}\s+"
+    rf"{N_STATE}\s+{N_VAR}\s+{N_RESERVED_ICON}\s*$"
 )
 
 
-def parse_perc1_record_scope(dyr_text: str) -> tuple[str, int]:
+def parse_perc1_dll_record_scope(dyr_text: str) -> tuple[str, int]:
     """(scope id, first-field number) of the single PERC** record in
     `dyr_text` - e.g. ("owner", 7) for `7 'USRLOD' '1' 'PERCOW' 12 2 ...`."""
     matches = [_HEADER_RE.match(line.strip()) for line in dyr_text.splitlines()]
@@ -63,10 +69,10 @@ def parse_perc1_record_scope(dyr_text: str) -> tuple[str, int]:
     return scope.id, int(matches[0].group(1))
 
 
-def parse_perc1_dyr_block(dyr_text: str, *, load_id: str | None = None) -> dict:
+def parse_perc1_dll_record(dyr_text: str, *, load_id: str | None = None) -> dict:
     """Parse the single PERCBL USRLOD record in `dyr_text` back into a CON
-    dict keyed by load_models.perc1_dll.cons.PERC1_CON_ORDER - the same 173 names
-    build_perc1_dyr_block consumes. Uses load_models.perc1_dll.cons.PERC1_DYR_LAYOUT's own block
+    dict keyed by load_models.perc1_dll.cons.CON_NAMES - the same 173 names
+    build_perc1_dll_record consumes. Uses load_models.perc1_dll.cons.DYR_LAYOUT's own block
     structure to read each value row positionally, rather than parsing the
     "@!" comment text, so it stays correct even if a comment's wording
     changes. Raises ValueError (fails loudly, never silently drops a CON) if
@@ -101,7 +107,7 @@ def parse_perc1_dyr_block(dyr_text: str, *, load_id: str | None = None) -> dict:
     j += 1  # past the ICON line
 
     params: dict = {}
-    for block in PERC1_DYR_LAYOUT:
+    for block in DYR_LAYOUT:
         while j < len(lines) and lines[j].lstrip().startswith("@!"):
             j += 1
         if j >= len(lines):
@@ -116,7 +122,7 @@ def parse_perc1_dyr_block(dyr_text: str, *, load_id: str | None = None) -> dict:
             params[name] = float(token) if "." in token else int(token)
         j += 1
 
-    missing = [name for name in PERC1_CON_ORDER if name not in params]
+    missing = [name for name in CON_NAMES if name not in params]
     if missing:
         raise ValueError(f"parsed PERCBL record is missing CONs: {missing}")
 
@@ -129,9 +135,8 @@ def parse_perc1_dyr_block(dyr_text: str, *, load_id: str | None = None) -> dict:
 # placeholder word (`IBUS`) and may write the load ID unquoted, so both are accepted here.
 _RECORD_RE = re.compile(
     r"(?P<number>\d+|[A-Za-z]\w*)\s+'USRLOD'\s+(?:'(?P<id>[^']+)'|(?P<bare_id>[^\s'/]+))\s+"
-    r"'PERC(?P<suffix>BL|OW|ZN|AR|AL)'\s+(?P<values>[^/]*)/?")
-_HEADER_FIELDS = (12, None, 2, None, 33, 250, 0)  # model type code, IT, N_ICON, N_CON, N_STATE, N_VAR, N_RESERVED
-N_ICON, N_CON = 2, 173
+    rf"'{FAMILY}(?P<suffix>BL|OW|ZN|AR|AL)'\s+(?P<values>[^/]*)/?")
+_HEADER_FIELDS = (MODEL_CODE, None, N_ICON, None, N_STATE, N_VAR, N_RESERVED_ICON)  # IT and N_CON vary
 # PERC2 V2.3 (PERC2_v3x_v2p3.dll) keeps CON(J)..CON(J+172) unchanged and appends these six (vendor docx, J+173..J+178).
 V2P3_EXTRA_CONS = ("TAQ", "TBQ", "RAMPAMC", "RAMPUAMC", "VLRCMC", "VURCMC")
 _CON_COUNTS = (N_CON, N_CON + len(V2P3_EXTRA_CONS))
@@ -141,7 +146,7 @@ def strip_comments(text: str) -> str:
     return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith(("@!", "//")))
 
 
-def parse_perc1_records(dyr_text: str) -> list[dict]:
+def parse_perc1_dll_records(dyr_text: str) -> list[dict]:
     """Every PERC** USRLOD record in `dyr_text`, in file order, as dicts with scope, number, load_id, icons, cons and
     error. A malformed record is reported through its `error` (cons empty) rather than raised, so one bad record
     does not hide the others. A placeholder first field (`IBUS`) gives number 0 and is kept in `placeholder`; a
@@ -175,8 +180,8 @@ def parse_perc1_records(dyr_text: str) -> list[dict]:
             record["icons"] = tuple(int(float(t)) for t in tokens[len(_HEADER_FIELDS):len(_HEADER_FIELDS) + N_ICON])
             values = tokens[len(_HEADER_FIELDS) + N_ICON:]
             record["cons"] = {
-                name: int(float(tok)) if name in PERC1_ZIP_FIELDS else (float(tok) if "." in tok else int(tok))
-                for name, tok in zip(PERC1_CON_ORDER, values)
+                name: int(float(tok)) if name in ZIP_FIELDS else (float(tok) if "." in tok else int(tok))
+                for name, tok in zip(CON_NAMES, values)
             }
             if n_con > N_CON:
                 record["v2p3_cons"] = {name: float(tok) for name, tok in zip(V2P3_EXTRA_CONS, values[N_CON:])}
@@ -190,4 +195,22 @@ def is_perc1_dll_record(dyr_text: str) -> bool:
     """True when `dyr_text` holds a PERC** record that is not a PERC2 DLL v2.3 one (header CON count 179). Both DLLs
     register PERCBL, so the count is the only thing that tells them apart; a header too broken to read counts as
     PERC1's, so the error is reported against the older model."""
-    return any(r.get("n_con") != N_CON + len(V2P3_EXTRA_CONS) for r in parse_perc1_records(dyr_text))
+    return any(r.get("n_con") != N_CON + len(V2P3_EXTRA_CONS) for r in parse_perc1_dll_records(dyr_text))
+
+
+__all__ = [
+    "FAMILY",
+    "MODEL_CODE",
+    "N_CON",
+    "N_ICON",
+    "N_RESERVED_ICON",
+    "N_STATE",
+    "N_VAR",
+    "V2P3_EXTRA_CONS",
+    "build_perc1_dll_record",
+    "is_perc1_dll_record",
+    "parse_perc1_dll_record",
+    "parse_perc1_dll_record_scope",
+    "parse_perc1_dll_records",
+    "strip_comments",
+]

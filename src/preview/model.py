@@ -33,7 +33,7 @@ from load_models.perc1_dll.cons import OVERFREQUENCY_TRIP_CONS, UNDERFREQUENCY_T
 from load_models.perc1_dll.simulation import (
     OVERVOLTAGE_STAGE_CONS,
     UNDERVOLTAGE_STAGE_CONS,
-    simulate_perc1_event,
+    simulate_perc1_dll_event,
 )
 from presets.envelope import (
     envelope_bound,
@@ -205,7 +205,7 @@ def simulate(model_id: str, params: dict, event: Event) -> dict:
         from preview.standard import simulate_standard
 
         return simulate_standard(params, event.duration_s, event.voltage_pu, event.kind, event.frequency_hz)
-    return simulate_perc1_event(params, event.kind, event.duration_s, event.voltage_pu, event.frequency_hz)
+    return simulate_perc1_dll_event(params, event.kind, event.duration_s, event.voltage_pu, event.frequency_hz)
 
 
 def cease_fraction(model_id: str, params: dict) -> float:

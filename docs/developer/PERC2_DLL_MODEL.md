@@ -6,7 +6,7 @@ say. Derived from the PSS/E validation library (not published); results are summ
 
 ## What it is
 
-ISO-NE's PERC2 v2.3 is **the PERC1 DLL (`perc1_dll`, [PERC1_MODEL.md](PERC1_MODEL.md)) with six CONs appended**, built
+ISO-NE's PERC2 v2.3 is **the PERC1 DLL ([PERC1_MODEL.md](PERC1_MODEL.md)) with six CONs appended**; `perc2_dll` is written out in full and imports nothing from `perc1_dll`, built
 for PSS/E 34, 35 and 36 (`PERC2_v34_v2p3.dll`, `PERC2_v35_v2p3.dll`, `PERC2_v36_v2p3.dll`; the app validated the v35 and
 v36 builds). It is a user load model (`USRLOD`), not a composite-load component, and it registers the same model name as
 the PERC1 DLL, `PERCBL`. Everything the two share behaves identically (79 cases, identical traces outside the voltage
@@ -38,8 +38,9 @@ own `DYRE FORMAT` says 173 CONs; that record loads silently and breaks momentary
 (validation finding 1.2). The app keeps the two ICONs in the CON dict as integers, `FREQ50` (ICON(M)) and `MCFLAG` (ICON(M+1)),
 like the PERC2 standard model's flags.
 
-**Telling it from a PERC1 DLL record.** Both say `PERCBL`. `perc1_dll/dyr.py`'s `parse_perc1_records` reads either
-layout and sets `n_con` from the header; `is_perc1_dll_record` / `is_perc2_dll_record` test it, and both models set the
+**Telling it from a PERC1 DLL record.** Both say `PERCBL`. `perc1_dll/dyr.py`'s `parse_perc1_dll_records` reads either
+layout and sets `n_con` from the header, and `perc2_dll/dyr.py`'s `parse_perc2_dll_records` reads only the 179-CON
+ones; `is_perc1_dll_record` / `is_perc2_dll_record` test it, and both models set the
 new `LoadModel.matches_dyr` hook, which `find_model_for_dyr` checks after the name. A header too broken to read counts as
 PERC1's, so the error is reported against the older model. `.dyr` import routes the same way.
 
@@ -53,7 +54,7 @@ PERC1's, so the error is reported against the older model. `.dyr` import routes 
 | `RAMPAMC`, `RAMPUAMC` | ramp after a low / high cessation, in seconds (not x LFM) |
 | `VLRCMC`, `VURCMC` | a ceased load comes back after the filtered voltage has been strictly inside this band for `TBLK + TDELY` |
 
-The defaults are the PERC1 DLL's (`perc1_dll`'s `PERC1_DEFAULT_CONS`), the four cessation CONs from the vendor sample
+The defaults are the PERC1 DLL's (`perc2_dll/cons.py` carries its own copy of the values), the four cessation CONs from the vendor sample
 (1.0, 1.0, 0.9, 1.09), TAQ = TBQ = 0, MCFLAG = FREQ50 = 0, and RAMPA/RAMPUA divided by LFM so a new block ramps over the
 same seconds as a new PERC1 DLL block.
 
@@ -96,11 +97,11 @@ cessation), a stage at or below VLBLK with cessation on (the takeover), FRA/VNOM
 
 ## The simulator
 
-`simulation.py`: with momentary cessation off, the PERC1 DLL simulator on `perc1_equivalent(cons)` (RAMPA/RAMPUA in
-seconds, LFM as the DLL uses it, negative delays as 0). With it on, a v2.3 state machine (`_run_logic`) that adds the two
+`simulation.py` holds its own copy of the PERC1 DLL simulator (`_run_logic`, `_response`, `_voltage_response`, `_frequency_response`). With momentary cessation off it runs on `perc1_equivalent(cons)` (RAMPA/RAMPUA in
+seconds, LFM as the DLL uses it, negative delays as 0). With it on, a v2.3 state machine (`_run_mc_logic`) that adds the two
 cessation "stages" (zero delay, their own band and ramps), keeps the stage timers running during a cessation, and
-marks a takeover (`escalated` in the response); the filters, the power loop and the response shape are the PERC1 DLL
-simulator's. Checked against PSS/E on every single-dip case of the library (79, 31 with cessation): first cease, first
+marks a takeover (`escalated` in the response); the filters, the power loop and the response shape are the copied
+PERC1 DLL simulator's. Checked against PSS/E on every single-dip case of the library (79, 31 with cessation): first cease, first
 ramp start and ramp length agree within one sample (validation finding 10). Not modelled: the lead-lags and washouts (the
 app exports them bypassed), the per-`run()`-call ramp speed-up (a rig effect), Q.
 
@@ -114,4 +115,4 @@ app exports them bypassed), the per-`run()`-call ramp speed-up (a rig effect), Q
 | RAMPA/RAMPUA x LFM (the PERC1 DLL does not scale) | divides them by LFM in defaults and presets |
 | VRPA 1.0 never reconnects | caps preset VRPA at 0.95, reports it in `preset_gaps` |
 | v36 build: high-side cessation crashes PSS/E 36.7; any TA/TB is NaN | `validate_cons(..., psse_version="36.7")` errors; the app exports TA = TB = 0 and cessation off by default |
-| No range checks in the DLL | `validate_cons` errors before export (`build_perc2_dll_dyr_block` refuses errors) |
+| No range checks in the DLL | `validate_cons` errors before export (`build_perc2_dll_record` refuses errors) |

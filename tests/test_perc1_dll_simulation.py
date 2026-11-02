@@ -3,7 +3,7 @@ import math
 import pytest
 
 from load_models.perc1_dll import MODEL as PERC1_DLL
-from load_models.perc1_dll.simulation import simulate_perc1_response
+from load_models.perc1_dll.simulation import simulate_perc1_dll_response
 from presets.ridethrough import RIDE_THROUGH_PRESETS
 
 
@@ -25,7 +25,7 @@ def test_simulate_perc1_response_trips_via_earlier_stage_2_not_stage_1():
     params = dict(preset.it_bundle)
     assert params["DMA"] == 2.00 and params["DMA1"] == 0.50  # sanity: real ERCOT tiers
 
-    sim = simulate_perc1_response(params, fault_duration_s=0.6, fault_voltage_pu=0.75)
+    sim = simulate_perc1_dll_response(params, fault_duration_s=0.6, fault_voltage_pu=0.75)
 
     assert sim["trips"] is True
     assert sim["trip_type"] == "undervoltage"
@@ -42,7 +42,7 @@ def test_simulate_perc1_response_rides_through_when_no_stage_completes():
     preset = RIDE_THROUGH_PRESETS["ercot_nogrr282"]
     params = dict(preset.it_bundle)
 
-    sim = simulate_perc1_response(params, fault_duration_s=0.1, fault_voltage_pu=0.75)
+    sim = simulate_perc1_dll_response(params, fault_duration_s=0.1, fault_voltage_pu=0.75)
 
     assert sim["trips"] is False
     assert sim["trip_type"] is None
@@ -59,7 +59,7 @@ def test_armed_required_delay_surfaces_why_a_sag_rides_through():
     preset = RIDE_THROUGH_PRESETS["ercot_nogrr282"]
     params = dict(preset.it_bundle)
 
-    sim = simulate_perc1_response(params, fault_duration_s=0.6, fault_voltage_pu=0.85)
+    sim = simulate_perc1_dll_response(params, fault_duration_s=0.6, fault_voltage_pu=0.85)
     assert sim["trips"] is False
     # 2.00s plus the time the filtered voltage takes to cross 0.90 pu, less
     # the time it stays below 0.90 pu after the sag ends.
@@ -67,13 +67,13 @@ def test_armed_required_delay_surfaces_why_a_sag_rides_through():
         2.00 + _lag(1.0, 0.85, 0.90) - _lag(0.85, 1.0, 0.90), abs=1e-6)
 
     # Held long enough, the same depth now trips.
-    sim_long = simulate_perc1_response(params, fault_duration_s=2.1, fault_voltage_pu=0.85)
+    sim_long = simulate_perc1_dll_response(params, fault_duration_s=2.1, fault_voltage_pu=0.85)
     assert sim_long["trips"] is True
     assert sim_long["trip_type"] == "undervoltage"
 
     # A depth that doesn't reach ANY threshold at all has no requirement to
     # report - genuinely nothing is armed, not just "not yet armed long enough".
-    sim_none = simulate_perc1_response(params, fault_duration_s=0.6, fault_voltage_pu=0.95)
+    sim_none = simulate_perc1_dll_response(params, fault_duration_s=0.6, fault_voltage_pu=0.95)
     assert sim_none["trips"] is False
     assert sim_none["armed_required_delay_s"] is None
 
@@ -97,30 +97,30 @@ def test_overvoltage_trips_over_1_1pu_after_2s_and_immediately_over_1_2pu():
 
     # Strictly above the published 1.20pu tier: trips almost instantly, even
     # on a very short-duration swell.
-    sim_severe = simulate_perc1_response(params, fault_duration_s=0.05, fault_voltage_pu=1.25)
+    sim_severe = simulate_perc1_dll_response(params, fault_duration_s=0.05, fault_voltage_pu=1.25)
     assert sim_severe["trips"] is True
     assert sim_severe["trip_type"] == "overvoltage"
 
     # Between the continuous ceiling and the published tier (1.10-1.20pu):
     # rides through a short hold, but cannot ride through indefinitely -
     # trips once held for the published 2.00s.
-    sim_brief = simulate_perc1_response(params, fault_duration_s=0.6, fault_voltage_pu=1.15)
+    sim_brief = simulate_perc1_dll_response(params, fault_duration_s=0.6, fault_voltage_pu=1.15)
     assert sim_brief["trips"] is False
     assert sim_brief["armed_required_delay_s"] == pytest.approx(
         2.00 + _lag(1.0, 1.15, 1.10) - _lag(1.15, 1.0, 1.10), abs=1e-6)
 
-    sim_held = simulate_perc1_response(params, fault_duration_s=2.1, fault_voltage_pu=1.15)
+    sim_held = simulate_perc1_dll_response(params, fault_duration_s=2.1, fault_voltage_pu=1.15)
     assert sim_held["trips"] is True
     assert sim_held["trip_type"] == "overvoltage"
 
     # Inside the continuous operating band entirely (at or below 1.10pu):
     # never armed, rides through no matter how long it's held.
-    sim_continuous = simulate_perc1_response(params, fault_duration_s=3.0, fault_voltage_pu=1.05)
+    sim_continuous = simulate_perc1_dll_response(params, fault_duration_s=3.0, fault_voltage_pu=1.05)
     assert sim_continuous["trips"] is False
     assert sim_continuous["armed_required_delay_s"] is None
 
     # Inside the continuous operating band entirely: never armed.
-    sim_continuous = simulate_perc1_response(params, fault_duration_s=3.0, fault_voltage_pu=1.05)
+    sim_continuous = simulate_perc1_dll_response(params, fault_duration_s=3.0, fault_voltage_pu=1.05)
     assert sim_continuous["trips"] is False
     assert sim_continuous["armed_required_delay_s"] is None
 
@@ -133,10 +133,10 @@ def _prc029_params():
 
 
 def test_frequency_event_trips_via_the_stage_whose_delay_completes():
-    from load_models.perc1_dll.simulation import simulate_perc1_frequency_response
+    from load_models.perc1_dll.simulation import simulate_perc1_dll_frequency_response
 
     # PRC-029-1: below 58.8 Hz must ride through 299 s, then may trip.
-    sim = simulate_perc1_frequency_response(_prc029_params(), fault_duration_s=310.0, fault_frequency_hz=58.5)
+    sim = simulate_perc1_dll_frequency_response(_prc029_params(), fault_duration_s=310.0, fault_frequency_hz=58.5)
 
     assert sim["trips"]
     assert sim["trip_type"] == "underfrequency"
@@ -152,13 +152,13 @@ def test_frequency_event_uses_only_the_first_stage():
     """The vendor model has one frequency trip point per direction; the
     stage-2-4 CONs are marked NOT USED, so even an extreme excursion only trips
     once stage 1's delay has run (PRC-029-1: 299 s)."""
-    from load_models.perc1_dll.simulation import simulate_perc1_frequency_response
+    from load_models.perc1_dll.simulation import simulate_perc1_dll_frequency_response
 
     params = _prc029_params()
     params.update({"FOFTP2": 60.5, "TOFTP2": 0.0})  # a NOT USED stage must not trip
 
-    short = simulate_perc1_frequency_response(params, fault_duration_s=5.0, fault_frequency_hz=62.5)
-    held = simulate_perc1_frequency_response(params, fault_duration_s=300.0, fault_frequency_hz=62.5)
+    short = simulate_perc1_dll_frequency_response(params, fault_duration_s=5.0, fault_frequency_hz=62.5)
+    held = simulate_perc1_dll_frequency_response(params, fault_duration_s=300.0, fault_frequency_hz=62.5)
 
     assert not short["trips"]
     assert held["trip_type"] == "overfrequency"
@@ -166,9 +166,9 @@ def test_frequency_event_uses_only_the_first_stage():
 
 
 def test_frequency_event_inside_the_mandatory_band_reports_what_it_would_take():
-    from load_models.perc1_dll.simulation import simulate_perc1_frequency_response
+    from load_models.perc1_dll.simulation import simulate_perc1_dll_frequency_response
 
-    sim = simulate_perc1_frequency_response(_prc029_params(), fault_duration_s=60.0, fault_frequency_hz=58.5)
+    sim = simulate_perc1_dll_frequency_response(_prc029_params(), fault_duration_s=60.0, fault_frequency_hz=58.5)
 
     assert not sim["trips"]
     assert sim["armed_required_delay_s"] == pytest.approx(
@@ -179,11 +179,11 @@ def test_frequency_event_inside_the_mandatory_band_reports_what_it_would_take():
 def test_vendor_default_frequency_trip_point():
     """Without a published table the block keeps the vendor's stage 1: trip
     below 58.0 Hz after 100 s. A frequency above it never arms."""
-    from load_models.perc1_dll.simulation import simulate_perc1_frequency_response
+    from load_models.perc1_dll.simulation import simulate_perc1_dll_frequency_response
 
     params = dict(PERC1_DLL.default_cons)
-    mild = simulate_perc1_frequency_response(params, fault_duration_s=600.0, fault_frequency_hz=59.5)
-    deep = simulate_perc1_frequency_response(params, fault_duration_s=120.0, fault_frequency_hz=57.5)
+    mild = simulate_perc1_dll_frequency_response(params, fault_duration_s=600.0, fault_frequency_hz=59.5)
+    deep = simulate_perc1_dll_frequency_response(params, fault_duration_s=120.0, fault_frequency_hz=57.5)
 
     assert not mild["trips"] and mild["armed_required_delay_s"] is None
     assert deep["trips"] and deep["markers"]["trip_time"] == pytest.approx(0.5 + _lag(60.0, 57.5, 58.0) + 100.0)
@@ -204,12 +204,12 @@ def test_undervoltage_never_arms_exactly_at_the_continuous_band_edge():
     params = dict(preset.it_bundle)
     assert params["VDPA"] == 0.90 and params["DMA"] == 2.00  # sanity: SPP's own tier
 
-    on_edge = simulate_perc1_response(params, fault_duration_s=5.0, fault_voltage_pu=0.90)
+    on_edge = simulate_perc1_dll_response(params, fault_duration_s=5.0, fault_voltage_pu=0.90)
     assert on_edge["trips"] is False
     assert on_edge["armed_required_delay_s"] is None
 
     # A hair below the edge is genuinely inside the 2.00s tier and still trips.
-    just_below = simulate_perc1_response(params, fault_duration_s=5.0, fault_voltage_pu=0.899)
+    just_below = simulate_perc1_dll_response(params, fault_duration_s=5.0, fault_voltage_pu=0.899)
     assert just_below["trips"] is True
     assert just_below["trip_type"] == "undervoltage"
 
@@ -221,8 +221,8 @@ def test_overvoltage_trip_reconnects_through_the_high_side_cons():
     # VRPA below 1.0 so the sag's recovery to 1.0 pu is inside the window.
     params.update({"TDRA": 1.0, "RAMPA": 0.1, "TRUPA": 20.0, "RAMPUA": 3.0, "VRPA": 0.95})
 
-    swell = simulate_perc1_response(params, fault_duration_s=0.2, fault_voltage_pu=1.25)
-    sag = simulate_perc1_response(params, fault_duration_s=0.5, fault_voltage_pu=0.2)
+    swell = simulate_perc1_dll_response(params, fault_duration_s=0.2, fault_voltage_pu=1.25)
+    sag = simulate_perc1_dll_response(params, fault_duration_s=0.5, fault_voltage_pu=0.2)
 
     # Each timer starts when the filtered voltage enters the window: below
     # VRUPA (1.05) after the swell, above VRPA (0.95) after the sag.
@@ -259,7 +259,7 @@ def test_sag_power_follows_the_zip_exponent_until_the_current_limit(npa, ipmaxa,
     params = _riding_through(RIDE_THROUGH_PRESETS["ercot_nogrr282"].it_bundle)
     params.update({"NPA": npa, "IPMAXA": ipmaxa})
 
-    sim = simulate_perc1_response(params, fault_duration_s=1.0, fault_voltage_pu=0.3)
+    sim = simulate_perc1_dll_response(params, fault_duration_s=1.0, fault_voltage_pu=0.3)
 
     assert sim["trips"] is False
     assert _p_at(sim, 1.4) == pytest.approx(expected, abs=1e-3)
@@ -271,7 +271,7 @@ def test_sag_onset_dips_and_recovery_overshoots_to_about_one_over_v():
     (validation finding 4.3)."""
     params = _riding_through(RIDE_THROUGH_PRESETS["ercot_nogrr282"].it_bundle)
 
-    sim = simulate_perc1_response(params, fault_duration_s=0.5, fault_voltage_pu=0.75)
+    sim = simulate_perc1_dll_response(params, fault_duration_s=0.5, fault_voltage_pu=0.75)
 
     assert _p_at(sim, 0.5) == pytest.approx(0.75, abs=0.01)    # Ip still sized for 1.0 pu
     assert _p_at(sim, 0.95) == pytest.approx(1.0, abs=1e-3)    # caught up
@@ -285,7 +285,7 @@ def test_ipmaxa_below_lfm_cannot_draw_its_own_load():
     params = _riding_through(RIDE_THROUGH_PRESETS["ercot_nogrr282"].it_bundle)
     params.update({"IPMAXA": 0.7})
 
-    sim = simulate_perc1_response(params, fault_duration_s=0.1, fault_voltage_pu=0.95)
+    sim = simulate_perc1_dll_response(params, fault_duration_s=0.1, fault_voltage_pu=0.95)
 
     assert sim["initial_power_pu"] == pytest.approx(0.875)
     assert _p_at(sim, 0.4) == pytest.approx(0.875)
@@ -297,8 +297,8 @@ def test_vrpa_1_stays_tripped_when_the_voltage_recovers_to_exactly_1_pu():
     params = dict(RIDE_THROUGH_PRESETS["ercot_nogrr282"].it_bundle)
     assert params["VRPA"] == 1.0
 
-    stuck = simulate_perc1_response(params, fault_duration_s=0.5, fault_voltage_pu=0.3)
-    above = simulate_perc1_response(params, fault_duration_s=0.5, fault_voltage_pu=0.3, recovery_voltage_pu=1.01)
+    stuck = simulate_perc1_dll_response(params, fault_duration_s=0.5, fault_voltage_pu=0.3)
+    above = simulate_perc1_dll_response(params, fault_duration_s=0.5, fault_voltage_pu=0.3, recovery_voltage_pu=1.01)
 
     assert stuck["trips"] and not stuck["reconnects"]
     assert "reconnect_start" not in stuck["markers"]
@@ -316,7 +316,7 @@ def test_vrpa_below_a_stage_voltage_cycles_every_tdra_plus_dma():
     params = dict(RIDE_THROUGH_PRESETS["standard_itic"].it_bundle)
     params.update({"VDPA": 0.90, "DMA": 2.0, "VRPA": 0.85, "TDRA": 0.93, "RAMPA": 0.0})
 
-    sim = simulate_perc1_response(params, fault_duration_s=0.5, fault_voltage_pu=0.3, recovery_voltage_pu=0.87)
+    sim = simulate_perc1_dll_response(params, fault_duration_s=0.5, fault_voltage_pu=0.3, recovery_voltage_pu=0.87)
 
     trips = [e["time"] for e in sim["trip_events"]]
     assert sim["cycles"] and len(trips) >= 3
@@ -328,8 +328,8 @@ def test_trip_and_reconnect_communication_delays():
     """CMTDELAY delays every trip; CMTDELAYC every reconnect (validation
     finding 5)."""
     params = dict(RIDE_THROUGH_PRESETS["standard_itic"].it_bundle)
-    base = simulate_perc1_response(params, fault_duration_s=0.5, fault_voltage_pu=0.3)
-    delayed = simulate_perc1_response(dict(params, CMTDELAY=0.1, CMTDELAYC=0.2),
+    base = simulate_perc1_dll_response(params, fault_duration_s=0.5, fault_voltage_pu=0.3)
+    delayed = simulate_perc1_dll_response(dict(params, CMTDELAY=0.1, CMTDELAYC=0.2),
                                       fault_duration_s=0.5, fault_voltage_pu=0.3)
 
     assert delayed["markers"]["trip_time"] == pytest.approx(base["markers"]["trip_time"] + 0.1)
@@ -340,13 +340,13 @@ def test_frequency_droop_scales_power_while_online():
     """P = Pref * (1 + DROOPA * db(f - 60, DBA) / 60): -16.7%/Hz with
     DROOPA = 10, nothing inside a DBA deadband in Hz, and Q-free
     (validation finding 3)."""
-    from load_models.perc1_dll.simulation import simulate_perc1_frequency_response
+    from load_models.perc1_dll.simulation import simulate_perc1_dll_frequency_response
 
     params = _prc029_params()
     assert params["DROOPA"] == 10.0
-    sim = simulate_perc1_frequency_response(params, fault_duration_s=30.0, fault_frequency_hz=59.0)
-    banded = simulate_perc1_frequency_response(dict(params, DBA=0.5), fault_duration_s=30.0, fault_frequency_hz=59.0)
-    over = simulate_perc1_frequency_response(params, fault_duration_s=30.0, fault_frequency_hz=61.0)
+    sim = simulate_perc1_dll_frequency_response(params, fault_duration_s=30.0, fault_frequency_hz=59.0)
+    banded = simulate_perc1_dll_frequency_response(dict(params, DBA=0.5), fault_duration_s=30.0, fault_frequency_hz=59.0)
+    over = simulate_perc1_dll_frequency_response(params, fault_duration_s=30.0, fault_frequency_hz=61.0)
 
     assert not sim["trips"]
     assert _p_at(sim, 20.0) == pytest.approx(1 - 10 * 1.0 / 60, abs=1e-4)
@@ -358,10 +358,10 @@ def test_frequency_droop_scales_power_while_online():
 def test_frequency_reconnect_needs_the_frequency_window():
     """After a frequency trip the reconnect timer runs only while
     FUFRN1 < f < FOFRN1 (validation finding 1.5)."""
-    from load_models.perc1_dll.simulation import simulate_perc1_frequency_response
+    from load_models.perc1_dll.simulation import simulate_perc1_dll_frequency_response
 
     params = _prc029_params()
-    stuck = simulate_perc1_frequency_response(params, fault_duration_s=310.0, fault_frequency_hz=58.5,
+    stuck = simulate_perc1_dll_frequency_response(params, fault_duration_s=310.0, fault_frequency_hz=58.5,
                                               recovery_frequency_hz=58.7)
 
     assert stuck["trips"] and not stuck["reconnects"]

@@ -35,7 +35,7 @@ from load_models.base import (
     V_FAULT,
     format_con,
 )
-from load_models.clod.cons import CLOD_DISPLAY_FIELDS
+from load_models.clod.cons import DISPLAY_FIELDS as CLOD_DISPLAY_FIELDS
 from preview.model import Event, build_preview
 from preview.report_page import REPORT_BLOCK_CSS, font_face_css, render_report_block
 

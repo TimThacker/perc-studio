@@ -98,8 +98,7 @@ perc-studio/
 │   │   └── runner.py            # PsseRunner contract, mock runner, FaultScenario/SimulationResult
 │   ├── load_models/             # one subpackage per model; see ADDING_A_LOAD_MODEL.md
 │   │   ├── __init__.py          # registry: LOAD_MODELS, get_load_model, find_model_for_dyr
-│   │   ├── base.py              # the LoadModel contract + shared .dyr helpers
-│   │   ├── common.py            # helpers the PERC models share: flag_on, preset_bundle, the simulator time grid
+│   │   ├── base.py              # the LoadModel contract + the .dyr helpers every record writer uses
 │   │   ├── perc1_dll/           # cons.py, dyr.py, simulation.py
 │   │   ├── perc1_standard/      # cons.py, dyr.py, presets.py (PSS/E 36.7 PERCxx1U)
 │   │   ├── perc2_standard/      # cons.py, dyr.py, presets.py, simulation.py (PSS/E 36.7 PERCxx2U)
@@ -137,11 +136,11 @@ perc-studio/
     ├── conftest.py
     ├── fixtures/
     │   ├── sweep_example.json
-    │   ├── example_load_model.py  # minimal non-PERC1 model (tests + template)
     │   └── multistage_trip/     # PSS/E-validated .dyr pair (see below)
     ├── test_<module>.py         # one file per src/ module it covers
     ├── test_layering.py         # the package import direction (see "Package layering")
     ├── test_load_models.py      # contract tests run against every registered model
+    ├── test_model_regression.py # every model against its golden file in tests/golden/ (see ADDING_A_LOAD_MODEL.md)
     ├── test_cli.py
     └── test_multistage_trip_regression.py
 ```
@@ -166,8 +165,7 @@ psse, blackbox, dev    PSS/E runner contract, black-box model testing, the autom
 function are the documented exceptions: `load_models` reaches `preview` for a model's report figure, `app/launcher.py`
 opens the `ui`, and the black-box and CLI features reach each other lazily. `dev/` (the `perc-studio` CLI and the
 advanced model validation) is imported by nothing in the desktop app, so the installer does not need it. Shared code goes in the lowest package that can
-hold it: the helpers the PERC models share are `load_models/common.py`, envelope geometry is `presets/envelope.py`,
-and what the response pages share is `preview/style.py` and `preview/frame.py`.
+hold it: envelope geometry is `presets/envelope.py`, and what the response pages share is `preview/style.py` and `preview/frame.py`.
 
 ## Module responsibilities
 
@@ -209,10 +207,11 @@ and what the response pages share is `preview/style.py` and `preview/frame.py`.
     `model_id`, so **adding a model means adding one subpackage and one
     registry line** - see [ADDING_A_LOAD_MODEL.md](ADDING_A_LOAD_MODEL.md).
   - `perc1_dll/` - the engineering core for PERC1: `cons.py` (the 173-CON
-    layout, vendor defaults, `PERC1_DEFAULT_CONS`, display fields,
+    layout, vendor defaults, `DEFAULT_CONS`, display fields,
     `voltage_stage_cons`, `ZIP_EXPONENT_MAP`), `dyr.py` (the `PERCBL` writer and its
-    inverse parser), and `simulation.py` (`simulate_perc1_response` and
-    `simulate_perc1_frequency_response`, the analytic voltage- and
+    inverse parser), `presets.py` (a preset's PERC1 bundle, carried over
+    unchanged), and `simulation.py` (`simulate_perc1_dll_response` and
+    `simulate_perc1_dll_frequency_response`, the analytic voltage- and
     frequency-event responses behind the live chart and the mock runner).
   - `perc1_standard/` - the PSS/E 36.7 built-in `PERCxx1U` model: `cons.py` (30
     CONs, `CON_SPECS` limits, `validate_cons`), `dyr.py` (the `MAINxx10` +

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from ..base import LoadModel
 from .cons import CON_NAMES, DEFAULT_CONS, DISPLAY_FIELDS, validate_cons
-from .dyr import build_perc2_standard_dyr_block, parse_perc2_standard_record
+from .dyr import build_perc2_standard_record, parse_perc2_standard_record
 from .presets import cons_for_preset, preset_gaps
 from .simulation import (
     simulate_perc2_standard_frequency_response,
@@ -26,13 +26,13 @@ MODEL = LoadModel(
         "never reconnects, droop, voltage exponents and P-priority current limits."
     ),
     dyr_model_name="PERCBL2U",
+    dyr_model_aliases=("PERCOW2U", "PERCZN2U", "PERCAR2U", "PERCAL2U"),
+    supports_record_scopes=True,
     con_names=CON_NAMES,
     default_cons=DEFAULT_CONS,
     display_fields=DISPLAY_FIELDS,
-    build_dyr_record=build_perc2_standard_dyr_block,
+    build_dyr_record=build_perc2_standard_record,
     parse_dyr_record=parse_perc2_standard_record,
-    dyr_model_aliases=("PERCOW2U", "PERCZN2U", "PERCAR2U", "PERCAL2U"),
-    supports_record_scopes=True,
     simulate=simulate_perc2_standard_response,
     simulate_frequency=simulate_perc2_standard_frequency_response,
     cons_for_preset=cons_for_preset,

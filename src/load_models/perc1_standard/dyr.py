@@ -50,7 +50,7 @@ def _main_record(number, load_id, scope, fractions: dict[int, float]) -> str:
             f"{' '.join(format_value(f) for f in frac)} /")
 
 
-def build_perc1_standard_dyr_block(number, load_id, cons, scope="bus", *, load_fraction=1.0, component=1,
+def build_perc1_standard_record(number, load_id, cons, scope="bus", *, load_fraction=1.0, component=1,
                                    description="PERC1 load") -> str:
     """The complete record set for one load: the main component, the PERC
     component and - only when `load_fraction` < 1 - a static component for the
@@ -86,20 +86,25 @@ def build_perc1_standard_dyr_block(number, load_id, cons, scope="bus", *, load_f
     return "\n".join(lines)
 
 
+_SCOPE_BY_SUFFIX = {scope.suffix: scope for scope in RECORD_SCOPES.values()}
 _NAMES = "|".join(f"{FAMILY}{s.suffix}{VERSION_SUFFIX}" for s in RECORD_SCOPES.values())
 _PERC_RE = re.compile(
     rf"(?P<number>\d+)\s+'USRLODC'\s+'(?P<id>[^']+)'\s+'(?P<model>{_NAMES})'\s+{MODEL_CODE}\s+(?P<it>[1-5])\s+{N_ICON}\s+{N_CON}\s+"
     rf"{N_STATE}\s+{N_VAR}\s+{N_RESERVED_ICON}\s+(?P<comp>\d+)\s+'(?P<desc>[^']*)'\s+(?P<values>[^/]*?)\s*/", re.DOTALL)
 
 
-def _strip_comments(text: str) -> str:
+def _scope_of(model_name: str) -> str:
+    return _SCOPE_BY_SUFFIX[model_name[len(FAMILY):len(FAMILY) + 2]].id
+
+
+def strip_comments(text: str) -> str:
     return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith(("@!", "//")))
 
 
 def parse_perc1_standard_record(dyr_text: str) -> dict:
     """The 30 CONs of the first PERCxx1U record in `dyr_text` (comment rows
     and continuation lines allowed)."""
-    match = _PERC_RE.search(_strip_comments(dyr_text))
+    match = _PERC_RE.search(strip_comments(dyr_text))
     if match is None:
         raise ValueError("no PERCxx1U 'USRLODC' record with the standard header (230 IT 0 30 8 24 2) found")
     values = [float(token) for token in match.group("values").split()]
@@ -110,12 +115,10 @@ def parse_perc1_standard_record(dyr_text: str) -> dict:
 
 def parse_perc1_standard_header(dyr_text: str) -> dict:
     """Scope, number, load id and component number of the first PERCxx1U record."""
-    match = _PERC_RE.search(_strip_comments(dyr_text))
+    match = _PERC_RE.search(strip_comments(dyr_text))
     if match is None:
         raise ValueError("no PERCxx1U 'USRLODC' record found")
-    suffix = match.group("model")[len(FAMILY):len(FAMILY) + 2]
-    scope = next(s.id for s in RECORD_SCOPES.values() if s.suffix == suffix)
-    return {"scope": scope, "number": int(match.group("number")), "load_id": match.group("id"),
+    return {"scope": _scope_of(match.group("model")), "number": int(match.group("number")), "load_id": match.group("id"),
             "component": int(match.group("comp")), "description": match.group("desc")}
 
 
@@ -126,7 +129,7 @@ def parse_perc1_standard_records(dyr_text: str) -> list[dict]:
     """Every PERCxx1U record in `dyr_text`, in file order: scope, number, load_id, component, description, cons,
     error and `load_fraction` - the fraction its MAINxx10 record gives that component (-1 means "the balance"; None
     when the file has no matching main record). A record with the wrong number of CONs carries `error`."""
-    text = re.sub(r"'[^']*'|,", lambda m: " " if m.group(0) == "," else m.group(0), _strip_comments(dyr_text))
+    text = re.sub(r"'[^']*'|,", lambda m: " " if m.group(0) == "," else m.group(0), strip_comments(dyr_text))
     mains = {}
     for main in _MAIN_RE.finditer(text):
         tokens = main.group("values").split()
@@ -134,7 +137,7 @@ def parse_perc1_standard_records(dyr_text: str) -> list[dict]:
             mains[(int(main.group("number")), main.group("id"))] = [float(t) for t in tokens[-MAX_COMPONENTS:]]
     records = []
     for match in _PERC_RE.finditer(text):
-        header = {"scope": next(s.id for s in RECORD_SCOPES.values() if s.suffix == match.group("model")[len(FAMILY):len(FAMILY) + 2]),
+        header = {"scope": _scope_of(match.group("model")),
                   "number": int(match.group("number")), "load_id": match.group("id"),
                   "component": int(match.group("comp")), "description": match.group("desc"),
                   "position": match.start()}
@@ -146,3 +149,24 @@ def parse_perc1_standard_records(dyr_text: str) -> list[dict]:
         else:
             records.append({**header, "cons": {}, "error": f"expected {N_CON} CON values, got {len(values)}"})
     return records
+
+
+__all__ = [
+    "FAMILY",
+    "MAX_COMPONENTS",
+    "MODEL_CODE",
+    "N_CON",
+    "N_ICON",
+    "N_RESERVED_ICON",
+    "N_STATE",
+    "N_VAR",
+    "STATIC_REMAINDER_CONS",
+    "VERSION_SUFFIX",
+    "build_perc1_standard_record",
+    "format_value",
+    "parse_perc1_standard_header",
+    "parse_perc1_standard_record",
+    "parse_perc1_standard_records",
+    "perc_model_name",
+    "strip_comments",
+]

@@ -45,18 +45,6 @@ def delete_windows_after_each_test():
 
 
 @pytest.fixture
-def example_model(monkeypatch):
-    """Registers tests/fixtures/example_load_model.py's non-PERC1 model for
-    one test only, so the built-in registry stays untouched."""
-    from fixtures.example_load_model import MODEL
-
-    import load_models
-
-    monkeypatch.setitem(load_models.LOAD_MODELS, MODEL.id, MODEL)
-    return MODEL
-
-
-@pytest.fixture
 def cli_runner():
     return CliRunner()
 

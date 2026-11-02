@@ -13,13 +13,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from load_models import get_load_model
-from load_models.common import flag_on
-from load_models.perc1_dll.cons import (
-    PERC1_DISPLAY_FIELDS,
-    PERC1_FIXED_DEFAULTS,
-    PERC1_ZIP_FIELDS,
-    ZIP_EXPONENT_MAP,
-)
+from load_models.perc1_dll.cons import DISPLAY_FIELDS as PERC1_DISPLAY_FIELDS
+from load_models.perc1_dll.cons import FIXED_DEFAULTS as PERC1_FIXED_DEFAULTS
+from load_models.perc1_dll.cons import ZIP_EXPONENT_MAP
+from load_models.perc1_dll.cons import ZIP_FIELDS as PERC1_ZIP_FIELDS
 from load_models.perc1_standard.cons import (
     CON_SPECS,
     DEFAULT_CONS,
@@ -30,6 +27,7 @@ from load_models.perc1_standard.presets import preset_gaps
 from load_models.perc2_dll.cons import DISPLAY_FIELDS as PERC2_DLL_DISPLAY_FIELDS
 from load_models.perc2_dll.cons import ICON_NAMES as PERC2_DLL_FLAG_NAMES
 from load_models.perc2_dll.cons import RAMP_CONS as PERC2_DLL_RAMP_CONS
+from load_models.perc2_dll.cons import flag_on
 from load_models.perc2_dll.cons import validate_cons as perc2_dll_validate_cons
 from load_models.perc2_standard.cons import CON_SPECS as PERC2_CON_SPECS
 from load_models.perc2_standard.cons import DEFAULT_CONS as PERC2_DEFAULT_CONS
@@ -56,7 +54,7 @@ def uses_standard_names(model_id: str) -> bool:
     return model_id in STANDARD_STYLE_MODEL_IDS
 
 # Advanced PERC1 fields exposed for hand-editing. Names are the real PSS/E PERC1 CON
-# mnemonics (see load_models.perc1_dll.cons.PERC1_DISPLAY_FIELDS, the single source of truth shared with
+# mnemonics (see load_models.perc1_dll.cons.DISPLAY_FIELDS, the single source of truth shared with
 # the HTML report) - not a fictional simplified parameter set - so a value entered
 # here maps directly onto a specific CON in the exported .dyr record. NPA/NQA are a
 # genuine 3-way ZIP exponent selector (0/1/2), not a continuous value, so they get a

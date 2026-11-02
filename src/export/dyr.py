@@ -11,7 +11,7 @@ from load_models.base import (
     record_number,
 )
 from load_models.clod.cons import derive_clod_params
-from load_models.clod.dyr import clod_record
+from load_models.clod.dyr import build_clod_record
 
 USER_DEFINED_ID = "user_defined"
 
@@ -168,7 +168,7 @@ def build_dyr_text(session_state):
 
     if session_state["include_motor_block"] and mw_motor > 0:
         lines.append(f"/ --- Cooling motor load block ({mw_motor:.2f} MW) - {clod_model_name(session_state)} ---")
-        lines.append(clod_record(number, session_state["load_id_motor"], clod_params, scope))
+        lines.append(build_clod_record(number, session_state["load_id_motor"], clod_params, scope))
 
     if session_state["has_onsite_gen"]:
         lines.append("/")

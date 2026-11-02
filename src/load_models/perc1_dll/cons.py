@@ -12,7 +12,7 @@ layouts - this app must not conflate them:**
   ("Data_Center_Performance_Model_PERC1_PSSEV34_V35_documentation_Rev7.pdf")
   - every CON name and J-offset in that document's own data sheet matches
   this module's layout exactly. See
-  `PERC1_FIXED_DEFAULTS`'s own note for the one real naming
+  `FIXED_DEFAULTS`'s own note for the one real naming
   inconsistency found (`TRQ`/`TFRQ`) and the two values (`IPMAXA`,
   `CMTDELAY`) that turned out to have no vendor-specified default at all.
 - **"Standard" variant** - available starting PSS/E v36.5, as PSS/E's own
@@ -39,7 +39,7 @@ different models that happen to share a name and that one common concept.
 
 
 # Full name -> value defaults for every CON except the 10 core cease/reconnect
-# and ZIP CONs, which PERC1_DEFAULT_CONS below adds. The full 173-CON layout below (names, order, and
+# and ZIP CONs, which DEFAULT_CONS below adds. The full 173-CON layout below (names, order, and
 # every value here) was verified 2026-09-17 against the vendor's own DLL
 # variant documentation ("Data_Center_Performance_Model_PERC1_PSSEV34_V35_
 # documentation_Rev7.pdf") plus two independent example .dyr records it and
@@ -66,7 +66,7 @@ different models that happen to share a name and that one common concept.
 # extra communication lag assumed), not a vendor-mandated constant - do not
 # "fix" these to match either vendor sample number, since neither is more
 # authoritative than the other for these two fields.
-PERC1_FIXED_DEFAULTS = {
+FIXED_DEFAULTS = {
     # Active power loop support blocks (bypassed unless overridden).
     "DROOPA": 10.0,
     "KWASHA": 0.0,
@@ -109,7 +109,7 @@ PERC1_FIXED_DEFAULTS = {
     # always evaluates this 4-stage table, for every facility, regardless of
     # whether it's meant to use "Option 1 only" - there is no flag that
     # disables stages 2-4 the way ICON(M+1) disables Option 2. Because of
-    # this, every CON-dict-building step in this app (PERC1_DEFAULT_CONS
+    # this, every CON-dict-building step in this app (DEFAULT_CONS
     # below, presets/ridethrough.py's preset bundles) calls
     # `voltage_stage_cons()` to REPLACE the vendor-sample values below with
     # either the preset's own real multi-tier envelope or (for the
@@ -136,7 +136,7 @@ PERC1_FIXED_DEFAULTS = {
     "FUFRN1": 58.5, "TUFRN1": 100.0, "RUFRN1": 5.0,
 }
 for _n in (2, 3, 4):
-    PERC1_FIXED_DEFAULTS.update({
+    FIXED_DEFAULTS.update({
         f"FOFTP{_n}": 99.0, f"TOFTP{_n}": 999.0,
         f"FOFRN{_n}": 99.0, f"TOFRN{_n}": 999.0, f"ROFRN{_n}": 999.0,
         f"FUFTP{_n}": 99.0, f"TUFTP{_n}": 999.0,
@@ -145,11 +145,11 @@ for _n in (2, 3, 4):
 for _suffix in ("B", "C", "D"):
     for _name in ("VDP", "DM", "TDR", "VRP", "RAMP", "DROOP", "KWASH", "TWASH", "TA", "TB",
                   "FR", "NP", "VNOM", "IPMAX", "IPMIN", "IQMAX", "IQMIN", "TR", "NQ", "DB", "VDU", "TDU"):
-        PERC1_FIXED_DEFAULTS[f"{_name}{_suffix}"] = 0.0
+        FIXED_DEFAULTS[f"{_name}{_suffix}"] = 0.0
     for _name in ("VRUP", "TRUP", "RAMPU"):
-        PERC1_FIXED_DEFAULTS[f"{_name}{_suffix}"] = 0.0
+        FIXED_DEFAULTS[f"{_name}{_suffix}"] = 0.0
 for _name in ("ZETAA", "WNAA", "ZETAB", "WNAB", "ZETAC", "WNAC", "ZETAD", "WNAD"):
-    PERC1_FIXED_DEFAULTS[_name] = 0.0
+    FIXED_DEFAULTS[_name] = 0.0
 del _n, _suffix, _name
 
 
@@ -175,11 +175,11 @@ def _dll_freq_block(suffix):
 # verified directly against a vendor-supplied example .dyr record (2026-09-17)
 # and grouped exactly as that example file groups them (each tuple is one
 # "@!"-commented row group). This is the single source of truth both for
-# validating PERC1_FIXED_DEFAULTS/PERC1_DEFAULT_CONS below and for
+# validating FIXED_DEFAULTS/DEFAULT_CONS below and for
 # export/dyr.py's .dyr record emission - a name appearing here but missing from
 # a params dict is a bug, so the .dyr builder should fail loudly rather than
 # silently drop a CON.
-PERC1_DYR_LAYOUT = [
+DYR_LAYOUT = [
     _dll_channel_block("A"),
     _dll_channel_block("B"),
     _dll_channel_block("C"),
@@ -200,9 +200,89 @@ PERC1_DYR_LAYOUT = [
     ["KWASHQ", "TWASHQ"],
     ["TVM", "CMTDELAY", "LFM", "CMTDELAYC", "TFRQ"],
 ]
-PERC1_CON_ORDER = [name for block in PERC1_DYR_LAYOUT for name in block]
-assert len(PERC1_CON_ORDER) == 173, f"PERC1 DLL model requires exactly 173 CONs, got {len(PERC1_CON_ORDER)}"
-assert len(set(PERC1_CON_ORDER)) == 173, "PERC1_CON_ORDER has a duplicate CON name"
+CON_NAMES = tuple(name for block in DYR_LAYOUT for name in block)
+assert len(CON_NAMES) == 173, f"PERC1 DLL model requires exactly 173 CONs, got {len(CON_NAMES)}"
+assert len(set(CON_NAMES)) == 173, "CON_NAMES has a duplicate CON name"
+
+ZIP_FIELDS = {"NPA", "NQA"}
+
+# The frequency trip/reconnect CONs the model actually uses - the vendor data
+# sheet's J+120 to J+129. The "2"/"3"/"4"-suffixed sets (J+130 to J+159) are
+# marked "NOT USED" and keep the vendor example's 99 Hz / 999 s values.
+UNDERFREQUENCY_TRIP_CONS = ("FUFTP1", "TUFTP1")
+OVERFREQUENCY_TRIP_CONS = ("FOFTP1", "TOFTP1")
+UNDERFREQUENCY_RECONNECT_CONS = ("FUFRN1", "TUFRN1", "RUFRN1")
+OVERFREQUENCY_RECONNECT_CONS = ("FOFRN1", "TOFRN1", "ROFRN1")
+
+def voltage_stage_cons(undervoltage_stages, overvoltage_stages) -> dict:
+    """Map exactly 4 (voltage_pu, duration_s) undervoltage stages and 4
+    overvoltage stages onto the DLL variant's real Option-3 CON names -
+    VDPA/DMA + VDPA1-3/DMA1-3 (undervoltage), VDUA/TDUA + VDUA1-3/TDUA1-3
+    (overvoltage). Stage 1 in each list is the same point Option 1's own
+    VDPA/DMA or VDUA/TDUA already represents - this function's whole job is
+    making sure stages 2-4 agree with it instead of silently carrying
+    FIXED_DEFAULTS' vendor-sample values, which the compiled DLL
+    evaluates unconditionally (see that dict's own comment, and
+    docs/developer/PERC1_MODEL.md's "Option 3 is always live" section).
+
+    Every caller that builds a full PERC1 CON dict - DEFAULT_CONS below,
+    presets/ridethrough.py's preset bundles - should call this rather than
+    leaving VDPA1-3/DMA1-3/VDUA1-3/TDUA1-3 at their FIXED_DEFAULTS
+    values. Passing the same point 4 times (`[(vdpa, dma)] * 4`) is the
+    correct, PSS/E-validated choice when there is no real multi-tier data to
+    encode (a repeated stage fires at the exact same time as the tier it
+    copies - it cannot introduce a different, earlier trip)."""
+    if len(undervoltage_stages) != 4:
+        raise ValueError(f"expected exactly 4 undervoltage stages, got {len(undervoltage_stages)}")
+    if len(overvoltage_stages) != 4:
+        raise ValueError(f"expected exactly 4 overvoltage stages, got {len(overvoltage_stages)}")
+    cons = {}
+    for suffix, (voltage, duration) in zip(("", "1", "2", "3"), undervoltage_stages):
+        cons[f"VDPA{suffix}"] = voltage
+        cons[f"DMA{suffix}"] = duration
+    for suffix, (voltage, duration) in zip(("", "1", "2", "3"), overvoltage_stages):
+        cons[f"VDUA{suffix}"] = voltage
+        cons[f"TDUA{suffix}"] = duration
+    return cons
+
+
+# UPS/VFD front-end technology -> ZIP exponent (NPA/NQA): 0 = constant power,
+# 1 = constant current, 2 = constant impedance. A tightly-regulated front end
+# (double-conversion UPS, active front-end VFD) holds its power draw roughly
+# constant through a voltage sag until it trips, so it is modeled as constant
+# power; an unregulated/direct-online load's current draw is closer to fixed
+# impedance, so its power draw falls off with the square of voltage.
+ZIP_EXPONENT_MAP = {
+    "Double conversion (online)": 0,
+    "Eco-mode / line-interactive": 1,
+    "Direct-online (no UPS buffering)": 2,
+    "Active front-end (regenerative, near-unity PF)": 0,
+    "Standard front-end (diode rectifier)": 2,
+}
+
+# The model's complete 173-CON default set: FIXED_DEFAULTS plus the 10
+# core CONs it leaves out - a double-conversion (constant power) block with a
+# generic Standard-tier undervoltage trip (0.70 pu, 0.02 s), the full block
+# tripping and a staged reconnect - with each stage-1 voltage point repeated
+# into stages 2-4.
+DEFAULT_CONS = {
+    **FIXED_DEFAULTS,
+    "NPA": 0,
+    "NQA": 0,
+    "TRA": 0.02,
+    "VDPA": 0.70,
+    "DMA": 0.02,
+    "FCEASE": 1.0,
+    "VRPA": 0.9,
+    "TDRA": 60.0,
+    "RAMPA": 30.0,
+    "FRECON": 1.0,
+}
+DEFAULT_CONS.update(voltage_stage_cons(
+    [(DEFAULT_CONS["VDPA"], DEFAULT_CONS["DMA"])] * 4,
+    [(DEFAULT_CONS["VDUA"], DEFAULT_CONS["TDUA"])] * 4,
+))
+
 
 # The subset of CONs worth surfacing in the UI/report - the core
 # (undervoltage cease/reconnect + ZIP exponent) plus the most
@@ -214,9 +294,9 @@ assert len(set(PERC1_CON_ORDER)) == 173, "PERC1_CON_ORDER has a duplicate CON na
 # voltage (pu)" is what should catch the eye first. This is the single source
 # of truth for both the advanced editor and the HTML report (see ui/main_window.py,
 # preview/perc1_dll.py). `VDUA`/`TDUA` are channel A's own real overvoltage cease
-# threshold/delay (see PERC1_FIXED_DEFAULTS's comment) - genuinely part
+# threshold/delay (see FIXED_DEFAULTS's comment) - genuinely part
 # of the DLL variant, confirmed against the vendor sample.
-PERC1_DISPLAY_FIELDS = [
+DISPLAY_FIELDS = (
     ("VDPA", "Undervoltage stage 1 trip (pu)", "Vcease / VDPA"),
     ("DMA", "Undervoltage stage 1 delay (s)", "Tcease / DMA"),
     ("FCEASE", "Fraction that trips", "Fcease / FCEASE"),
@@ -278,85 +358,7 @@ PERC1_DISPLAY_FIELDS = [
     ("FOFRN1", "Over-frequency reconnect frequency (Hz)", "FOFRN1"),
     ("TOFRN1", "Over-frequency reconnect delay (s)", "TOFRN1"),
     ("ROFRN1", "Over-frequency reconnect ramp (s)", "ROFRN1"),
-]
-PERC1_ZIP_FIELDS = {"NPA", "NQA"}
-
-# The frequency trip/reconnect CONs the model actually uses - the vendor data
-# sheet's J+120 to J+129. The "2"/"3"/"4"-suffixed sets (J+130 to J+159) are
-# marked "NOT USED" and keep the vendor example's 99 Hz / 999 s values.
-UNDERFREQUENCY_TRIP_CONS = ("FUFTP1", "TUFTP1")
-OVERFREQUENCY_TRIP_CONS = ("FOFTP1", "TOFTP1")
-UNDERFREQUENCY_RECONNECT_CONS = ("FUFRN1", "TUFRN1", "RUFRN1")
-OVERFREQUENCY_RECONNECT_CONS = ("FOFRN1", "TOFRN1", "ROFRN1")
-
-def voltage_stage_cons(undervoltage_stages, overvoltage_stages) -> dict:
-    """Map exactly 4 (voltage_pu, duration_s) undervoltage stages and 4
-    overvoltage stages onto the DLL variant's real Option-3 CON names -
-    VDPA/DMA + VDPA1-3/DMA1-3 (undervoltage), VDUA/TDUA + VDUA1-3/TDUA1-3
-    (overvoltage). Stage 1 in each list is the same point Option 1's own
-    VDPA/DMA or VDUA/TDUA already represents - this function's whole job is
-    making sure stages 2-4 agree with it instead of silently carrying
-    PERC1_FIXED_DEFAULTS' vendor-sample values, which the compiled DLL
-    evaluates unconditionally (see that dict's own comment, and
-    docs/developer/PERC1_MODEL.md's "Option 3 is always live" section).
-
-    Every caller that builds a full PERC1 CON dict - PERC1_DEFAULT_CONS below,
-    presets/ridethrough.py's preset bundles - should call this rather than
-    leaving VDPA1-3/DMA1-3/VDUA1-3/TDUA1-3 at their PERC1_FIXED_DEFAULTS
-    values. Passing the same point 4 times (`[(vdpa, dma)] * 4`) is the
-    correct, PSS/E-validated choice when there is no real multi-tier data to
-    encode (a repeated stage fires at the exact same time as the tier it
-    copies - it cannot introduce a different, earlier trip)."""
-    if len(undervoltage_stages) != 4:
-        raise ValueError(f"expected exactly 4 undervoltage stages, got {len(undervoltage_stages)}")
-    if len(overvoltage_stages) != 4:
-        raise ValueError(f"expected exactly 4 overvoltage stages, got {len(overvoltage_stages)}")
-    cons = {}
-    for suffix, (voltage, duration) in zip(("", "1", "2", "3"), undervoltage_stages):
-        cons[f"VDPA{suffix}"] = voltage
-        cons[f"DMA{suffix}"] = duration
-    for suffix, (voltage, duration) in zip(("", "1", "2", "3"), overvoltage_stages):
-        cons[f"VDUA{suffix}"] = voltage
-        cons[f"TDUA{suffix}"] = duration
-    return cons
-
-
-# UPS/VFD front-end technology -> ZIP exponent (NPA/NQA): 0 = constant power,
-# 1 = constant current, 2 = constant impedance. A tightly-regulated front end
-# (double-conversion UPS, active front-end VFD) holds its power draw roughly
-# constant through a voltage sag until it trips, so it is modeled as constant
-# power; an unregulated/direct-online load's current draw is closer to fixed
-# impedance, so its power draw falls off with the square of voltage.
-ZIP_EXPONENT_MAP = {
-    "Double conversion (online)": 0,
-    "Eco-mode / line-interactive": 1,
-    "Direct-online (no UPS buffering)": 2,
-    "Active front-end (regenerative, near-unity PF)": 0,
-    "Standard front-end (diode rectifier)": 2,
-}
-
-# The model's complete 173-CON default set: PERC1_FIXED_DEFAULTS plus the 10
-# core CONs it leaves out - a double-conversion (constant power) block with a
-# generic Standard-tier undervoltage trip (0.70 pu, 0.02 s), the full block
-# tripping and a staged reconnect - with each stage-1 voltage point repeated
-# into stages 2-4.
-PERC1_DEFAULT_CONS = {
-    **PERC1_FIXED_DEFAULTS,
-    "NPA": 0,
-    "NQA": 0,
-    "TRA": 0.02,
-    "VDPA": 0.70,
-    "DMA": 0.02,
-    "FCEASE": 1.0,
-    "VRPA": 0.9,
-    "TDRA": 60.0,
-    "RAMPA": 30.0,
-    "FRECON": 1.0,
-}
-PERC1_DEFAULT_CONS.update(voltage_stage_cons(
-    [(PERC1_DEFAULT_CONS["VDPA"], PERC1_DEFAULT_CONS["DMA"])] * 4,
-    [(PERC1_DEFAULT_CONS["VDUA"], PERC1_DEFAULT_CONS["TDUA"])] * 4,
-))
+)
 
 
 def frequency_stage_cons(underfrequency_stage, overfrequency_stage, *,
@@ -374,3 +376,20 @@ def frequency_stage_cons(underfrequency_stage, overfrequency_stage, *,
         "FUFTP1": uf_hz, "TUFTP1": uf_delay, "FUFRN1": reconnect_low_hz,
         "FOFTP1": of_hz, "TOFTP1": of_delay, "FOFRN1": reconnect_high_hz,
     }
+
+
+__all__ = [
+    "CON_NAMES",
+    "DEFAULT_CONS",
+    "DISPLAY_FIELDS",
+    "DYR_LAYOUT",
+    "FIXED_DEFAULTS",
+    "OVERFREQUENCY_RECONNECT_CONS",
+    "OVERFREQUENCY_TRIP_CONS",
+    "UNDERFREQUENCY_RECONNECT_CONS",
+    "UNDERFREQUENCY_TRIP_CONS",
+    "ZIP_EXPONENT_MAP",
+    "ZIP_FIELDS",
+    "frequency_stage_cons",
+    "voltage_stage_cons",
+]

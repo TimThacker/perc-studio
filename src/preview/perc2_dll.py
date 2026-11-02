@@ -22,7 +22,7 @@ MODEL_LABEL = "PERC2 DLL v2.3"
 
 def simulate_perc2_dll_event(cons, event_kind, fault_duration_s, fault_voltage_pu=V_FAULT,
                              fault_frequency_hz=FREQUENCY_EVENT_HZ):
-    """`simulate_perc1_event`'s contract, through the PERC2 DLL model's `simulate` / `simulate_frequency`."""
+    """`simulate_perc1_dll_event`'s contract, through the PERC2 DLL model's `simulate` / `simulate_frequency`."""
     model = get_load_model(PERC2_DLL_MODEL_ID)
     if event_kind == "frequency":
         return model.simulate_frequency(cons, fault_duration_s, fault_frequency_hz)

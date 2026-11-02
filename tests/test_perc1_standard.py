@@ -16,7 +16,7 @@ from load_models.perc1_standard.cons import (
     TDELAY_HAZARD,
 )
 from load_models.perc1_standard.dyr import (
-    build_perc1_standard_dyr_block,
+    build_perc1_standard_record,
     parse_perc1_standard_header,
     parse_perc1_standard_record,
 )
@@ -61,7 +61,7 @@ def test_every_con_has_a_spec_and_the_sheet_limits():
 # --- the record -----------------------------------------------------------------
 
 def test_record_matches_the_data_sheet_syntax():
-    text = build_perc1_standard_dyr_block(101, "1", DEFAULT_CONS)
+    text = build_perc1_standard_record(101, "1", DEFAULT_CONS)
     main, perc = _record_lines(text)
     assert main.startswith("101 'MAINBL10' '1' 1 0 0 0 0 0 0 0 0 0  1 0 0 0 0 0 0 0 0 0 /")
     # IBUS 'USRLODC' ID 'PERCxx1U' 230 IT 0 30 8 24 2 CompNum 'CompDesc' CON(J)..CON(J+29) /
@@ -74,7 +74,7 @@ def test_record_matches_the_data_sheet_syntax():
 def test_each_scope_writes_matching_suffix_it_and_main(scope):
     suffix, it = RECORD_SCOPES[scope].suffix, RECORD_SCOPES[scope].it
     number = 0 if scope == "all" else 7
-    main, perc = _record_lines(build_perc1_standard_dyr_block(number, "1", DEFAULT_CONS, scope=scope))
+    main, perc = _record_lines(build_perc1_standard_record(number, "1", DEFAULT_CONS, scope=scope))
     assert f"'MAIN{suffix}10'" in main
     assert f"'PERC{suffix}1U' 230 {it} 0 30 8 24 2 1" in perc
     assert main.split()[0] == perc.split()[0] == str(number)
@@ -82,21 +82,21 @@ def test_each_scope_writes_matching_suffix_it_and_main(scope):
 
 
 def test_partial_load_adds_a_static_remainder_with_fraction_minus_one():
-    main, _perc, static = _record_lines(build_perc1_standard_dyr_block(101, "1", DEFAULT_CONS, load_fraction=0.3))
+    main, _perc, static = _record_lines(build_perc1_standard_record(101, "1", DEFAULT_CONS, load_fraction=0.3))
     assert "0.3 -1 0 0 0 0 0 0 0 0" in main and "1 1 0 0 0 0 0 0 0 0" in main
     assert static.startswith("101 'LSTCBL' '1' 2 'Static remainder' ")
     assert len(static.split("'Static remainder' ")[1].removesuffix(" /").split()) == 11
 
 
 def test_component_slot_moves_the_main_entry_and_header():
-    main, perc = _record_lines(build_perc1_standard_dyr_block(101, "1", DEFAULT_CONS, component=2))
+    main, perc = _record_lines(build_perc1_standard_record(101, "1", DEFAULT_CONS, component=2))
     assert " 0 1 0 0 0 0 0 0 0 0  0 1 0 0 0 0 0 0 0 0 /" in main
     assert "2 'PERC1 load'" in perc
 
 
 def test_round_trip_through_parse():
     cons = {**DEFAULT_CONS, "Vcease": 0.8, "Tramp": 12.5, "Iqmin": -0.65}
-    assert parse_perc1_standard_record(build_perc1_standard_dyr_block(101, "A1", cons)) == pytest.approx(cons)
+    assert parse_perc1_standard_record(build_perc1_standard_record(101, "A1", cons)) == pytest.approx(cons)
 
 
 def test_parse_handles_continuation_lines_and_comments():
@@ -107,7 +107,7 @@ def test_parse_handles_continuation_lines_and_comments():
 
 
 def test_parse_rejects_other_headers_and_the_dll_record():
-    good = build_perc1_standard_dyr_block(101, "1", DEFAULT_CONS)
+    good = build_perc1_standard_record(101, "1", DEFAULT_CONS)
     for bad in (good.replace(" 230 ", " 12 "), good.replace(" 24 2 1 ", " 24 0 1 "), good.replace("'USRLODC'", "'USRLOD'")):
         with pytest.raises(ValueError):
             parse_perc1_standard_record(bad)
@@ -117,7 +117,7 @@ def test_parse_rejects_other_headers_and_the_dll_record():
 
 
 def test_each_models_records_are_found_only_by_that_model():
-    standard = build_perc1_standard_dyr_block(101, "1", DEFAULT_CONS)
+    standard = build_perc1_standard_record(101, "1", DEFAULT_CONS)
     dll_model = get_load_model("perc1_dll")
     assert find_model_for_dyr(standard) is MODEL
     assert find_model_for_dyr(dll_model.build_dyr_record(101, "1", dll_model.default_cons)) is dll_model
@@ -126,13 +126,13 @@ def test_each_models_records_are_found_only_by_that_model():
 def test_builder_rejects_what_psse_rejects_or_cannot_represent():
     for bad in ({"dbfl": 0.01}, {"dbfh": -0.01}, {"Ipmax": 0.0, "Ipmin": 1.0}, {"Iqmax": -0.7, "Iqmin": 0.7}):
         with pytest.raises(ValueError):
-            build_perc1_standard_dyr_block(101, "1", {**DEFAULT_CONS, **bad})
+            build_perc1_standard_record(101, "1", {**DEFAULT_CONS, **bad})
     with pytest.raises(ValueError, match="load_fraction"):
-        build_perc1_standard_dyr_block(101, "1", DEFAULT_CONS, load_fraction=0.0)
+        build_perc1_standard_record(101, "1", DEFAULT_CONS, load_fraction=0.0)
     with pytest.raises(ValueError, match="component"):
-        build_perc1_standard_dyr_block(101, "1", DEFAULT_CONS, component=11)
+        build_perc1_standard_record(101, "1", DEFAULT_CONS, component=11)
     with pytest.raises(ValueError):
-        build_perc1_standard_dyr_block(101, "ABC", DEFAULT_CONS)  # PSS/E load ids are two characters
+        build_perc1_standard_record(101, "ABC", DEFAULT_CONS)  # PSS/E load ids are two characters
 
 
 # --- validate_cons ----------------------------------------------------------------

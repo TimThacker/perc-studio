@@ -5,6 +5,34 @@ section of each release is its release note for the production edition;
 **Developer** lists changes that only affect the development edition and the
 build.
 
+## Unreleased
+
+### Developer
+
+- Every built-in load model is one package with the same files and public names (`cons.py`: `CON_NAMES`,
+  `DEFAULT_CONS`, `DISPLAY_FIELDS`; `dyr.py`: `build_<id>_record`, `parse_<id>_record`, ...; `simulation.py`:
+  `simulate_<id>_response`; `presets.py`: `cons_for_preset`, `preset_gaps`). The layout is in
+  `docs/developer/ADDING_A_LOAD_MODEL.md` and checked for every model by a test. Renamed: `PERC1_CON_ORDER`,
+  `PERC1_DEFAULT_CONS`, `PERC1_DISPLAY_FIELDS`, `CLOD_DISPLAY_FIELDS`, `build_perc1_dyr_block`,
+  `parse_perc1_dyr_block`, `simulate_perc1_response`, `clod_record` and their PERC2 counterparts.
+- `docs/developer/ADDING_A_LOAD_MODEL.md` has a worked example, a complete step-trip model in the package layout, and a
+  test that writes its code blocks to a package and checks the layout rules on it.
+- The one-file test model `example_load_model.py` is removed. The developer-loop tests (case, export, mock run, sweep,
+  CLI) run on every real model that can mock-run instead.
+- New golden-file regression test (`tests/test_model_regression.py`, files in `tests/golden/`). For every model it
+  pins the CON names and defaults, display rows, the `.dyr` record (in full for the defaults, a digest for every preset
+  and block), and a digest of the simulated response over a grid of voltage and frequency events, and for four models
+  the full `.dyr` file the main window exports. The golden files were generated from 1.2.1, before the restructuring.
+  `UPDATE_GOLDEN=1` regenerates them.
+- No model shares code with another. `load_models/common.py` is gone: `flag_on`, `preset_bundle` and the simulator
+  time grid are copied into each model that uses them, and `perc2_dll` and `perc2_standard` carry their own copies of
+  the PERC1 DLL CON layout, defaults, `.dyr` parser and simulator, and of the PERC1 standard `.dyr` helpers. A test
+  fails if a model package imports another.
+- The files inside the models share one shape too: the same section order and a closing `__all__` in every file,
+  `CON_NAMES` before `DEFAULT_CONS` before `DISPLAY_FIELDS` in every `cons.py`, the same header constants and
+  `strip_comments` in every `dyr.py`, `flag_on` only in `cons.py`, and the same internal simulator names. Nothing a user sees changes: CON names, defaults, `.dyr` text and
+  simulated responses are identical to 1.2.1.
+
 ## 1.2.1 - 2026-10-26
 
 ### User-facing

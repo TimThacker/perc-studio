@@ -10,8 +10,17 @@ and `preset_gaps` says what that leaves out so callers can show it.
 
 from __future__ import annotations
 
-from ..common import preset_bundle
 from .cons import DEFAULT_CONS
+
+
+def _preset_bundle(preset, block_name):
+    """The preset's CON values for the "it" or "vfd" block."""
+    if block_name == "it":
+        return preset.it_bundle
+    if block_name == "vfd":
+        return preset.vfd_bundle
+    raise ValueError(f"ride-through presets define PERC1 CONs for blocks 'it' and 'vfd', not {block_name!r}")
+
 
 HZ_NOMINAL = 60.0
 # Vtf must be strictly above Vrecon, and a recovering filtered voltage approaches its final value from below: with
@@ -30,7 +39,7 @@ def cons_for_preset(preset, block_name: str) -> dict:
     is always 0 (PSS/E 36.7.1 hazard, see cons.TDELAY_HAZARD), and Vrecon is
     capped at RECONNECT_VOLTAGE_CEILING (a preset's 1.00 pu would strand the
     load at a post-fault voltage of 1.0 pu)."""
-    bundle = preset_bundle(preset, block_name, "PERC1 ")
+    bundle = _preset_bundle(preset, block_name)
     from presets.ridethrough import (
         collapsed_point,  # lazy: ridethrough_presets imports load_models at import time
     )
@@ -79,3 +88,11 @@ def preset_gaps(preset) -> list[str]:
     if preset.frequency_ride_through is not None:
         gaps.append("frequency ride-through is not modelled (no frequency cease; only droop responds to frequency)")
     return gaps
+
+
+__all__ = [
+    "HZ_NOMINAL",
+    "RECONNECT_VOLTAGE_CEILING",
+    "cons_for_preset",
+    "preset_gaps",
+]

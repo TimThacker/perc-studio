@@ -15,19 +15,17 @@ from __future__ import annotations
 import re
 
 from ..base import RECORD_SCOPES, get_record_scope, validate_load_id
-from ..perc1_standard.dyr import (
-    MAX_COMPONENTS,
-    STATIC_REMAINDER_CONS,
-    _main_record,
-    _strip_comments,
-    format_value,
-)
-from .cons import CON_NAMES, CON_ONLY_NAMES, ICON_NAMES, validate_cons
+from .cons import CON_ONLY_NAMES, ICON_NAMES, validate_cons
 
 MODEL_CODE = 230
 N_ICON, N_CON, N_STATE, N_VAR, N_RESERVED_ICON = 6, 57, 8, 44, 16
 FAMILY = "PERC"
 VERSION_SUFFIX = "2U"
+MAX_COMPONENTS = 10
+
+# LSTCxx static component: PFs, P1e, P1c, P2e, P2c, Pfrq, Q1e, Q1c, Q2e, Q2c, Qfrq. The remainder of a partially
+# PERC load; the data sheet's example (constant-impedance-heavy ZIP) is a reasonable stand-in.
+STATIC_REMAINDER_CONS = (1.0, 2.0, 0.3, 1.0, 0.7, 0.0, 2.0, 1.0, 1.0, 1.0, -1.0)
 
 
 def perc2_model_name(scope: str) -> str:
@@ -38,7 +36,24 @@ def format_flag(value) -> str:
     return str(round(float(value)))
 
 
-def build_perc2_standard_dyr_block(number, load_id, cons, scope="bus", *, load_fraction=1.0, component=1,
+def format_value(value) -> str:
+    return f"{float(value):.6g}"
+
+
+def _main_record(number, load_id, scope, fractions: dict[int, float]) -> str:
+    """MAINxx10: component types (1 = load) for the listed components, their load fractions (-1 = the balance)."""
+    ctype = [1 if i + 1 in fractions else 0 for i in range(MAX_COMPONENTS)]
+    frac = [fractions.get(i + 1, 0.0) for i in range(MAX_COMPONENTS)]
+    suffix = get_record_scope(scope).suffix
+    return (f"{number} 'MAIN{suffix}10' '{load_id}' {' '.join(map(str, ctype))}  "
+            f"{' '.join(format_value(f) for f in frac)} /")
+
+
+def strip_comments(text: str) -> str:
+    return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith(("@!", "//")))
+
+
+def build_perc2_standard_record(number, load_id, cons, scope="bus", *, load_fraction=1.0, component=1,
                                    description="PERC2 load") -> str:
     """The complete record set for one load: the main component, the PERC2 component and - only when
     `load_fraction` < 1 - a static component for the rest. `number` is the records' first field
@@ -76,6 +91,7 @@ def build_perc2_standard_dyr_block(number, load_id, cons, scope="bus", *, load_f
     return "\n".join(lines)
 
 
+_SCOPE_BY_SUFFIX = {scope.suffix: scope for scope in RECORD_SCOPES.values()}
 _NAMES = "|".join(f"{FAMILY}{s.suffix}{VERSION_SUFFIX}" for s in RECORD_SCOPES.values())
 _PERC2_RE = re.compile(
     rf"(?P<number>\d+)\s+'USRLODC'\s+'(?P<id>[^']+)'\s+'(?P<model>{_NAMES})'\s+{MODEL_CODE}\s+(?P<it>[1-5])\s+{N_ICON}\s+"
@@ -91,14 +107,13 @@ def _values_to_cons(tokens: list[str]) -> dict:
 
 
 def _scope_of(model_name: str) -> str:
-    suffix = model_name[len(FAMILY):len(FAMILY) + 2]
-    return next(s.id for s in RECORD_SCOPES.values() if s.suffix == suffix)
+    return _SCOPE_BY_SUFFIX[model_name[len(FAMILY):len(FAMILY) + 2]].id
 
 
 def parse_perc2_standard_record(dyr_text: str) -> dict:
     """The 6 flags and 57 CONs of the first PERCxx2U record in `dyr_text` (comment rows and continuation lines
     allowed)."""
-    match = _PERC2_RE.search(_strip_comments(dyr_text))
+    match = _PERC2_RE.search(strip_comments(dyr_text))
     if match is None:
         raise ValueError("no PERCxx2U 'USRLODC' record with the standard header (230 IT 6 57 8 44 16) found")
     tokens = match.group("values").split()
@@ -109,7 +124,7 @@ def parse_perc2_standard_record(dyr_text: str) -> dict:
 
 def parse_perc2_standard_header(dyr_text: str) -> dict:
     """Scope, number, load id and component number of the first PERCxx2U record."""
-    match = _PERC2_RE.search(_strip_comments(dyr_text))
+    match = _PERC2_RE.search(strip_comments(dyr_text))
     if match is None:
         raise ValueError("no PERCxx2U 'USRLODC' record found")
     return {"scope": _scope_of(match.group("model")), "number": int(match.group("number")),
@@ -120,7 +135,7 @@ def parse_perc2_standard_records(dyr_text: str) -> list[dict]:
     """Every PERCxx2U record in `dyr_text`, in file order, in the same shape as
     `perc1_standard.dyr.parse_perc1_standard_records`: scope, number, load_id, component, description, position, cons,
     error and `load_fraction` (from the matching MAINxx10 record; None when there is none)."""
-    text = re.sub(r"'[^']*'|,", lambda m: " " if m.group(0) == "," else m.group(0), _strip_comments(dyr_text))
+    text = re.sub(r"'[^']*'|,", lambda m: " " if m.group(0) == "," else m.group(0), strip_comments(dyr_text))
     mains = {}
     for main in _MAIN_RE.finditer(text):
         tokens = main.group("values").split()
@@ -143,5 +158,23 @@ def parse_perc2_standard_records(dyr_text: str) -> list[dict]:
     return records
 
 
-__all__ = ["CON_NAMES", "build_perc2_standard_dyr_block", "parse_perc2_standard_header", "parse_perc2_standard_record",
-           "parse_perc2_standard_records", "perc2_model_name"]
+__all__ = [
+    "FAMILY",
+    "MAX_COMPONENTS",
+    "MODEL_CODE",
+    "N_CON",
+    "N_ICON",
+    "N_RESERVED_ICON",
+    "N_STATE",
+    "N_VAR",
+    "STATIC_REMAINDER_CONS",
+    "VERSION_SUFFIX",
+    "build_perc2_standard_record",
+    "format_flag",
+    "format_value",
+    "parse_perc2_standard_header",
+    "parse_perc2_standard_record",
+    "parse_perc2_standard_records",
+    "perc2_model_name",
+    "strip_comments",
+]

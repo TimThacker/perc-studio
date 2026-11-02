@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from ..base import LoadModel
 from .cons import CON_NAMES, DEFAULT_CONS, DISPLAY_FIELDS, validate_cons
-from .dyr import build_perc1_standard_dyr_block, parse_perc1_standard_record
+from .dyr import build_perc1_standard_record, parse_perc1_standard_record
 from .presets import cons_for_preset, preset_gaps
 from .simulation import (
     simulate_perc1_standard_frequency_response,
@@ -27,17 +27,17 @@ MODEL = LoadModel(
         "cycle, droop, voltage exponents and current limits. No overvoltage, frequency or multi-stage trips."
     ),
     dyr_model_name="PERCBL1U",
+    dyr_model_aliases=("PERCOW1U", "PERCZN1U", "PERCAR1U", "PERCAL1U"),
+    supports_record_scopes=True,
     con_names=CON_NAMES,
     default_cons=DEFAULT_CONS,
     display_fields=DISPLAY_FIELDS,
-    build_dyr_record=build_perc1_standard_dyr_block,
+    build_dyr_record=build_perc1_standard_record,
     parse_dyr_record=parse_perc1_standard_record,
-    dyr_model_aliases=("PERCOW1U", "PERCZN1U", "PERCAR1U", "PERCAL1U"),
-    supports_record_scopes=True,
     simulate=simulate_perc1_standard_response,
     simulate_frequency=simulate_perc1_standard_frequency_response,
-    cons_for_preset=cons_for_preset,
     unmodelled_events=("overvoltage", "frequency"),
+    cons_for_preset=cons_for_preset,
 )
 
 __all__ = ["MODEL", "preset_gaps", "validate_cons"]

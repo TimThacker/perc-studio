@@ -35,8 +35,8 @@ from __future__ import annotations
 import itertools
 from dataclasses import dataclass
 
+from load_models.perc1_dll.cons import FIXED_DEFAULTS as PERC1_FIXED_DEFAULTS
 from load_models.perc1_dll.cons import (
-    PERC1_FIXED_DEFAULTS,
     frequency_stage_cons,
     voltage_stage_cons,
 )

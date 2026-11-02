@@ -55,7 +55,8 @@ from export.dyr import build_dyr_text
 from export.report import build_html_report
 from load_models import get_load_model
 from load_models.base import RECORD_SCOPES, record_number
-from load_models.clod.cons import CLOD_DISPLAY_FIELDS, derive_clod_params
+from load_models.clod.cons import DISPLAY_FIELDS as CLOD_DISPLAY_FIELDS
+from load_models.clod.cons import derive_clod_params
 from preview.model import build_preview
 from ui.block import BlockController
 from ui.components import (

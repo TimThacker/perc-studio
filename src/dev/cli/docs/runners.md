@@ -47,7 +47,7 @@ It is **not** a PSS/E simulation. It finds which registered load model wrote the
 (`load_models.find_model_for_dyr`, by the quoted model name in the `.dyr` text), parses the text back into a CON dict
 with that model's own parser - so it always runs on the *exact* artifact a real run would consume - and runs that
 model's analytic `simulate` hook (`simulate_frequency` for a frequency event). For PERC1 that is
-`load_models.perc1_dll.simulation.simulate_perc1_response`, the same simplified approximation the desktop app's live
+`load_models.perc1_dll.simulation.simulate_perc1_dll_response`, the same simplified approximation the desktop app's live
 chart uses.
 
 - It honors `fault_duration_s` and `fault_voltage_pu`/`fault_frequency_hz`. It **ignores** `fault_start_s` (analytic
