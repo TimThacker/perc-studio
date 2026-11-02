@@ -10,10 +10,10 @@ from PySide6.QtWidgets import QApplication
 from editor.dyr_import import list_records
 from export.dyr import build_dyr_text
 from load_models import get_load_model
-from load_models.perc1_dll.dyr import build_perc1_dyr_block, parse_perc1_records
+from load_models.perc1_dll.dyr import build_perc1_dll_record, parse_perc1_dll_records
 from load_models.perc1_standard.cons import CON_NAMES
 from load_models.perc1_standard.dyr import (
-    build_perc1_standard_dyr_block,
+    build_perc1_standard_record,
     parse_perc1_standard_records,
 )
 from presets.ridethrough import RIDE_THROUGH_PRESETS
@@ -44,7 +44,7 @@ def import_file(window, tmp_path, monkeypatch):
 
 
 def _std_text(**overrides):
-    return build_perc1_standard_dyr_block(100, "1", {**STD_CONS, **overrides})
+    return build_perc1_standard_record(100, "1", {**STD_CONS, **overrides})
 
 
 def test_importing_a_standard_record_switches_the_model_and_fills_the_editor(window, import_file):
@@ -66,7 +66,7 @@ def test_importing_a_standard_record_switches_the_model_and_fills_the_editor(win
 def test_importing_a_dll_record_keeps_cons_that_have_no_editor_field(window, import_file):
     window.pc_it_model_combo.setCurrentIndex(window.pc_it_model_combo.findData("perc1_standard"))
     cons = {**DLL_CONS, "ZETAA": 0.77}  # not shown in the editor
-    import_file("it", build_perc1_dyr_block(100, "1", cons))
+    import_file("it", build_perc1_dll_record(100, "1", cons))
     assert window.pc_it_model_combo.currentData() == "perc1_dll"
     params = window._collect_block_params("it")
     assert params["ZETAA"] == 0.77
@@ -85,14 +85,14 @@ def test_preview_and_export_carry_the_imported_cons_exactly(window, import_file)
 
 
 def test_dll_export_after_import_reproduces_the_file(window, import_file):
-    import_file("vfd", build_perc1_dyr_block(100, "2", DLL_CONS))
-    records = parse_perc1_records(build_dyr_text(window._state_from_post_form()))
+    import_file("vfd", build_perc1_dll_record(100, "2", DLL_CONS))
+    records = parse_perc1_dll_records(build_dyr_text(window._state_from_post_form()))
     vfd = next(r for r in records if r["load_id"] == "2")
     assert vfd["cons"] == pytest.approx(DLL_CONS)
 
 
 def test_out_of_range_values_widen_the_field_and_warn(window, import_file):
-    import_file("it", build_perc1_dyr_block(100, "1", {**DLL_CONS, "VDPA": 1.5}))
+    import_file("it", build_perc1_dll_record(100, "1", {**DLL_CONS, "VDPA": 1.5}))
     widget = window.pc_it_fields["VDPA"]
     assert widget.value() == pytest.approx(1.5) and widget.maximum() >= 1.5
     assert window._collect_block_params("it")["VDPA"] == 1.5
@@ -165,14 +165,14 @@ def test_leaving_an_edited_import_asks_first(window, import_file, monkeypatch):
 
 def test_reimporting_replaces_the_previous_import(window, import_file):
     import_file("it", _std_text(Vcease=0.5))
-    import_file("it", build_perc1_dyr_block(100, "1", DLL_CONS))
+    import_file("it", build_perc1_dll_record(100, "1", DLL_CONS))
     assert window.pc_it_preset_combo.findText("Imported .dyr") < 0  # the file has its own field, not a preset entry
     assert window.pc_it_model_combo.currentData() == "perc1_dll"
     assert window.pc_it_imported.model_id == "perc1_dll"
 
 
 def test_a_multi_record_file_imports_the_chosen_record(window, import_file):
-    text = "\n".join([build_perc1_dyr_block(1, "1", DLL_CONS), _std_text(Vcease=0.55)])
+    text = "\n".join([build_perc1_dll_record(1, "1", DLL_CONS), _std_text(Vcease=0.55)])
     assert len(list_records(text)) == 2
     import_file("it", text, pick=1)
     assert window.pc_it_model_combo.currentData() == "perc1_standard"

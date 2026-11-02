@@ -36,7 +36,7 @@ IBUS 'USRLODC' ID 'PERCxx2U' 230 IT 6 57 8 44 16 CompNum 'CompDesc' <6 flags> <5
 flags), NCON (57), NSTATE (8), NVAR (44) and the reserved-ICON count (16). **Write them exactly**: PSS/E does not check
 them against the model, a short count makes PERC2 overwrite the next component's memory (a neighbouring PERC1U lost its
 whole 50 MW at NVAR 40), and a later record with different counts is dropped as "Inconsistent model definitions"
-(validation finding 2.2). The flags must be integers (`1.0` is rejected). `dyr.build_perc2_standard_dyr_block` writes the flags on
+(validation finding 2.2). The flags must be integers (`1.0` is rejected). `dyr.build_perc2_standard_record` writes the flags on
 the header line and the CONs ten per continuation line, adds an `LSTCxx` static remainder (fraction -1) for a partial
 load, and refuses values `validate_cons` marks as errors.
 

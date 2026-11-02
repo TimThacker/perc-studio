@@ -13,32 +13,75 @@ one more stage of the developer workflow:
 |---|---|---|
 | `id`, `label`, `description` | yes | Registry entry; `model_id` in case JSON |
 | `dyr_model_name` | yes | Recognising the model's record in `.dyr` text |
+| `dyr_model_aliases`, `supports_record_scopes` | optional | Owner/zone/area/all-scoped records (`PERCOW`, `PERCZN`, ...) |
+| `matches_dyr` | optional | Telling this model's record from another model's that has the same name (the PERC1 DLL and the PERC2 DLL v2.3 both write `PERCBL`) |
 | `con_names`, `default_cons` | yes | CON validation, `--source defaults`, overrides |
 | `display_fields` | yes (may be empty) | CON tables in reports |
 | `build_dyr_record` | yes | `perc-studio export dyr` |
 | `parse_dyr_record` + `simulate` | optional | `perc-studio run` with the mock runner |
 | `simulate_frequency` | optional | Frequency scenarios (`--fault-frequency-hz`) with the mock runner |
+| `unmodelled_events` | optional | Envelope validation reports `"overvoltage"`/`"frequency"` as not modelled instead of failing them |
 | `cons_for_preset` | optional | `--source preset`, `perc-studio sweep`, envelope validation |
 | `result_figure` | optional | A model-specific report figure (a generic voltage/power plot is used otherwise) |
-| `matches_dyr` | optional | Telling this model's record from another model's that has the same name (the PERC1 DLL and the PERC2 DLL v2.3 both write `PERCBL`) |
+
+## Package layout
+
+Every built-in model is one package, `src/load_models/<model_id>/`, with the
+same files and the same public names. A file exists only if the model has the
+hook it backs. `<id>` below is the model id itself (`perc2_dll`, not `perc2`):
+
+| File | Public names | Backs |
+|---|---|---|
+| `__init__.py` | `MODEL`, `__all__` | The registry entry |
+| `cons.py` | `CON_NAMES` (tuple, record order, any ICONs first), `DEFAULT_CONS` (dict), `DISPLAY_FIELDS` (tuple of `(con, label[, tooltip])`); optional `ICON_NAMES`, `CON_ONLY_NAMES`, `CON_SPECS`, `ConIssue`, `validate_cons(cons, ...) -> list[ConIssue]` | `con_names`, `default_cons`, `display_fields` |
+| `dyr.py` | `build_<id>_record(number, load_id, cons, scope="bus", ...)`; with a parser, `parse_<id>_record(dyr_text) -> dict` and `parse_<id>_records(dyr_text) -> list[dict]` (every record in a file, for `.dyr` import); with a shared record name, `is_<id>_record(dyr_text) -> bool` | `build_dyr_record`, `parse_dyr_record`, `matches_dyr` |
+| `simulation.py` | `simulate_<id>_response(cons, fault_duration_s, fault_voltage_pu)`, `simulate_<id>_frequency_response(cons, fault_duration_s, fault_frequency_hz)` | `simulate`, `simulate_frequency` |
+| `presets.py` | `cons_for_preset(preset, block_name) -> dict`, `preset_gaps(preset) -> list[str]` (what the preset asks for that the model cannot encode; `[]` if nothing) | `cons_for_preset` |
+
+Rules:
+
+- **`__init__.py` only wires.** It has a docstring saying what the model is
+  and what each file holds, imports from its own files, builds `MODEL`, and
+  lists `MODEL` (plus any helpers the UI needs, such as `preset_gaps` and
+  `validate_cons`) in `__all__`. It holds no logic. The one exception is an
+  adapter that has to import lazily to avoid a cycle, such as `perc1_dll`'s
+  `_result_figure`.
+- **`MODEL` takes the module objects as they are.** Pass `con_names=CON_NAMES`,
+  not `tuple(...)` or `dict(...)` copies. The `LoadModel(...)` arguments go in
+  the order of the table at the top of this page.
+- **Function names carry the model id; constants don't.** Two models'
+  functions are often imported side by side (tests, `editor/dyr_import.py`),
+  so they need distinct names. Constants are per-module. When another module
+  imports one, it aliases it with the model's prefix:
+  `from load_models.perc1_dll.cons import DEFAULT_CONS as PERC1_DEFAULT_CONS`.
+- **Each model is defined in full in its own files.** Two models may use a
+  CON name, a check or a constant that looks the same, but PSS/E may treat it
+  differently in each. Keep a separate copy in each package rather than
+  moving it to a shared module.
+- `tests/test_load_models.py::test_builtin_model_follows_the_package_layout`
+  checks these names for every built-in model.
+
+CLOD (`clod/`) is the export-only case: `cons.py` and `dyr.py`, nothing else.
+[`tests/fixtures/example_load_model.py`](../../tests/fixtures/example_load_model.py)
+is a test-only model written as one file. It shows every hook in about 100
+lines, but a built-in model still gets the package layout.
 
 ## Steps
 
-1. **Create the package.** Add `src/load_models/<model_id>/__init__.py`.
-   Split it into `cons.py`/`dyr.py`/`simulation.py` like
-   [`perc1_dll/`](../../src/load_models/perc1_dll/) once it grows past a few
-   dozen lines.
-2. **Build `MODEL`.** Define a `LoadModel` in that `__init__.py`.
-   [`tests/fixtures/example_load_model.py`](../../tests/fixtures/example_load_model.py)
-   is a complete, working model with every hook in about 100 lines. Copy it as
-   a starting point.
+1. **Create the package.** Add `src/load_models/<model_id>/` with the files
+   from [Package layout](#package-layout) that your model's hooks need.
+   [`perc1_standard/`](../../src/load_models/perc1_standard/) is a complete
+   example.
+2. **Build `MODEL`.** Define a `LoadModel` in that `__init__.py` from the
+   names your files export.
 3. **Register it.** Add `<model_id>.MODEL` to `_BUILTIN_MODELS` in
    [`src/load_models/__init__.py`](../../src/load_models/__init__.py).
 4. **Run the tests.** `uv run pytest tests/test_load_models.py` runs the
    contract tests against every registered model. They check unique,
    fully-defaulted CONs, display fields that name real CONs, a `.dyr` record
    the registry can recognise, a parse round-trip, the simulator's response
-   shape, and preset encoding. You don't need to write new tests for this.
+   shape, preset encoding, and the package layout. You don't need to write new
+   tests for this.
 5. **Exercise it end to end** with the CLI:
 
    ```bash

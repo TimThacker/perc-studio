@@ -20,7 +20,7 @@ from load_models.perc1_dll.cons import (
 from load_models.perc1_dll.simulation import (
     OVERVOLTAGE_STAGE_CONS,
     UNDERVOLTAGE_STAGE_CONS,
-    simulate_perc1_event,
+    simulate_perc1_dll_event,
 )
 from presets.envelope import (
     envelope_bound,
@@ -392,7 +392,7 @@ def build_perc1_response_figure(params, block_label, envelope=None, envelope_lab
                                  overvoltage_envelope=None, height=None,
                                  fault_duration_s=FAULT_DURATION, fault_voltage_pu=V_FAULT, *,
                                  frequency_ride_through=None, event_kind="voltage",
-                                 fault_frequency_hz=FREQUENCY_EVENT_HZ, simulate_event=simulate_perc1_event):
+                                 fault_frequency_hz=FREQUENCY_EVENT_HZ, simulate_event=simulate_perc1_dll_event):
     """The live/report chart: a 2x2 grid so both ride-through tolerance maps fit
     without stacking four full-width panels.
 
@@ -407,7 +407,7 @@ def build_perc1_response_figure(params, block_label, envelope=None, envelope_lab
     the saved report passes an explicit height. The event's verdict is not
     drawn in the figure - see event_status()/render_perc1_response_page().
 
-    `simulate_event` (same signature as `simulate_perc1_event`) runs the event: the PERC2 DLL v2.3 page passes its
+    `simulate_event` (same signature as `simulate_perc1_dll_event`) runs the event: the PERC2 DLL v2.3 page passes its
     own, so the response comes from that model's simulator while `params` (ramps in seconds) draw the stages."""
     from plotly.subplots import make_subplots
 
@@ -456,7 +456,7 @@ def build_perc1_response_figure_from_result(result, params, block_label, envelop
                                              overvoltage_envelope=None, height=None):
     """Same 3-panel layout as build_perc1_response_figure, but fed from a
     real/mock psse_runner.SimulationResult's dense time_s/voltage_pu/
-    active_power_pu arrays instead of simulate_perc1_response's analytic
+    active_power_pu arrays instead of simulate_perc1_dll_response's analytic
     piecewise output. `params` is the block's own CON dict (VDPA/VRPA/VDUA/
     TDUA/DMA) - a SimulationResult alone doesn't carry the CON values that
     produced it, and panel 1's boundary lines / panel 3's trip-point marker
@@ -686,7 +686,7 @@ def build_perc1_response_figure_from_result(result, params, block_label, envelop
 
 def build_recovery_panel_html(params, block_label, block_mw=None, fault_duration_s=FAULT_DURATION,
                                fault_voltage_pu=V_FAULT, *, event_kind="voltage",
-                               fault_frequency_hz=FREQUENCY_EVENT_HZ, simulate_event=simulate_perc1_event):
+                               fault_frequency_hz=FREQUENCY_EVENT_HZ, simulate_event=simulate_perc1_dll_event):
     """A compact live summary of how much load trips, how much reconnects, and
     how long the ramp takes - a thin timeline bar plus one line of figures,
     kept short so the 2x2 chart above it keeps its height. Driven by the same
@@ -761,7 +761,7 @@ def build_recovery_panel_html(params, block_label, block_mw=None, fault_duration
 
 
 def _page_parts(params, block_label, block_mw, fault_duration_s, fault_voltage_pu, event_kind, fault_frequency_hz,
-                simulate_event=simulate_perc1_event):
+                simulate_event=simulate_perc1_dll_event):
     sim = simulate_event(params, event_kind, fault_duration_s, fault_voltage_pu, fault_frequency_hz)
     return (
         panel1_title_text(block_label, fault_duration_s, fault_voltage_pu, event_kind, fault_frequency_hz),
@@ -776,7 +776,7 @@ def render_perc1_response_page(params, block_label, envelope=None, envelope_labe
                                 overvoltage_envelope=None, block_mw=None, include_plotlyjs=True,
                                 div_id="plot", fill_viewport=False, fault_duration_s=FAULT_DURATION,
                                 fault_voltage_pu=V_FAULT, *, frequency_ride_through=None, event_kind="voltage",
-                                fault_frequency_hz=FREQUENCY_EVENT_HZ, simulate_event=simulate_perc1_event,
+                                fault_frequency_hz=FREQUENCY_EVENT_HZ, simulate_event=simulate_perc1_dll_event,
                                 notes=""):
     """Assemble one self-contained (or CDN-linked) HTML fragment: a heading row
     (event name + verdict), the 2x2 Plotly figure, and the recovery summary.
@@ -852,7 +852,7 @@ def build_live_update_js(params, block_label, envelope=None, envelope_label=None
                           overvoltage_envelope=None, block_mw=None, div_id="plot",
                           fault_duration_s=FAULT_DURATION, fault_voltage_pu=V_FAULT, *,
                           frequency_ride_through=None, event_kind="voltage",
-                          fault_frequency_hz=FREQUENCY_EVENT_HZ, simulate_event=simulate_perc1_event):
+                          fault_frequency_hz=FREQUENCY_EVENT_HZ, simulate_event=simulate_perc1_dll_event):
     """A `runJavaScript` payload that pushes new data into an *already-loaded*
     live page via `Plotly.react(...)` (diff-based redraw) plus plain DOM updates
     for the heading, status line and recovery strip - preserving the viewer's

@@ -1,10 +1,8 @@
 from load_models.clod.cons import derive_clod_params
 from load_models.perc1_dll import MODEL as PERC1_DLL
-from load_models.perc1_dll.cons import (
-    PERC1_CON_ORDER,
-    PERC1_DEFAULT_CONS,
-    PERC1_FIXED_DEFAULTS,
-)
+from load_models.perc1_dll.cons import CON_NAMES as PERC1_CON_NAMES
+from load_models.perc1_dll.cons import DEFAULT_CONS as PERC1_DEFAULT_CONS
+from load_models.perc1_dll.cons import FIXED_DEFAULTS as PERC1_FIXED_DEFAULTS
 
 # The PERC1 DLL's 10 core CONs, as the removed qualitative derivation set them for its default answers
 # (double conversion, Standard ITIC/CBEMA tier, full facility trips, staged reconnect). Snapshotted before
@@ -17,7 +15,7 @@ _SNAPSHOT_CORE_CONS = {
 
 def test_perc1_dll_default_cons_match_the_snapshot():
     assert PERC1_DLL.default_cons == PERC1_DEFAULT_CONS
-    assert list(PERC1_DEFAULT_CONS) and set(PERC1_DEFAULT_CONS) == set(PERC1_CON_ORDER)
+    assert list(PERC1_DEFAULT_CONS) and set(PERC1_DEFAULT_CONS) == set(PERC1_CON_NAMES)
     expected = {**PERC1_FIXED_DEFAULTS, **_SNAPSHOT_CORE_CONS}
     for suffix in ("1", "2", "3"):
         expected[f"VDPA{suffix}"], expected[f"DMA{suffix}"] = 0.7, 0.02
@@ -48,7 +46,7 @@ def test_derive_clod_params_handles_defaults():
 
 
 def test_stage_labels_are_numbered():
-    from load_models.perc1_dll.cons import PERC1_DISPLAY_FIELDS
+    from load_models.perc1_dll.cons import DISPLAY_FIELDS as PERC1_DISPLAY_FIELDS
 
     labels = {name: label for name, label, _ in PERC1_DISPLAY_FIELDS}
     assert labels["VDPA"] == "Undervoltage stage 1 trip (pu)"
@@ -58,7 +56,7 @@ def test_stage_labels_are_numbered():
 
 
 def test_frequency_trip_points_are_labeled_as_a_deadband():
-    from load_models.perc1_dll.cons import PERC1_DISPLAY_FIELDS
+    from load_models.perc1_dll.cons import DISPLAY_FIELDS as PERC1_DISPLAY_FIELDS
 
     labels = {name: label for name, label, _ in PERC1_DISPLAY_FIELDS}
     assert labels["FUFTP1"] == "Frequency deadband low (Hz)"

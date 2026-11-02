@@ -36,8 +36,8 @@ from ..perc1_dll.simulation import (
     _Filtered,
     _first_trip_hold,
     _power_trace,
-    simulate_perc1_frequency_response,
-    simulate_perc1_response,
+    simulate_perc1_dll_frequency_response,
+    simulate_perc1_dll_response,
 )
 from .cons import RAMP_CONS, effective_lfm, ramp_seconds
 
@@ -250,7 +250,7 @@ def simulate_perc2_dll_response(cons, fault_duration_s=FAULT_DURATION, fault_vol
     `recovery_voltage_pu`."""
     p = perc1_equivalent(cons)
     if not mc_active(cons):
-        return simulate_perc1_response(p, fault_duration_s, fault_voltage_pu, recovery_voltage_pu)
+        return simulate_perc1_dll_response(p, fault_duration_s, fault_voltage_pu, recovery_voltage_pu)
     return _voltage_response({k: (float(v) if not isinstance(v, str) else v) for k, v in p.items()},
                              fault_duration_s, fault_voltage_pu, recovery_voltage_pu)
 
@@ -260,5 +260,5 @@ def simulate_perc2_dll_frequency_response(cons, fault_duration_s=FREQUENCY_EVENT
                                           recovery_frequency_hz=NOMINAL_FREQUENCY_HZ):
     """A held frequency (the voltage stays at 1.0 pu, so momentary cessation never acts). The DLL measures frequency
     against 60 Hz whatever ICON(M) says."""
-    return simulate_perc1_frequency_response(perc1_equivalent(cons), fault_duration_s, fault_frequency_hz,
+    return simulate_perc1_dll_frequency_response(perc1_equivalent(cons), fault_duration_s, fault_frequency_hz,
                                              recovery_frequency_hz)

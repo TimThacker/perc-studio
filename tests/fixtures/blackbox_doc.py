@@ -9,7 +9,7 @@ from pathlib import Path
 
 from blackbox.protocol import overall_from
 from blackbox.scoring import compare_family, overall
-from load_models.perc1_dll.dyr import build_perc1_dyr_block
+from load_models.perc1_dll.dyr import build_perc1_dll_record
 from presets.ridethrough import RIDE_THROUGH_PRESETS
 
 # tag: (longest seen riding through, shortest seen tripping) in s; None = rode through everything run
@@ -41,7 +41,7 @@ def _family(kind, title, values, unit, outer_name, hi, inner_unit="s"):
 
 def placed_record() -> str:
     """The ERCOT bundle's PERC1 DLL record as the rig places it (`{BUS}` for the bus)."""
-    text = build_perc1_dyr_block(100001, "1", RIDE_THROUGH_PRESETS["ercot_nogrr282"].it_bundle)
+    text = build_perc1_dll_record(100001, "1", RIDE_THROUGH_PRESETS["ercot_nogrr282"].it_bundle)
     return text.replace("100001", "{BUS}", 1)
 
 

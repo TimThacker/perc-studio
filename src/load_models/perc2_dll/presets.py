@@ -16,7 +16,7 @@ CON for CON, with what PSS/E measured shaping two changes:
 from __future__ import annotations
 
 from ..common import preset_bundle
-from ..perc1_dll.cons import PERC1_CON_ORDER
+from ..perc1_dll.cons import CON_NAMES as PERC1_CON_NAMES
 from .cons import DEFAULT_CONS, RAMP_CONS, SAMPLE_EXTRA, effective_lfm
 
 RECONNECT_VOLTAGE_CEILING = 0.95
@@ -27,7 +27,7 @@ def cons_for_preset(preset, block_name: str) -> dict:
     b = preset_bundle(preset, block_name)
     cons = dict(DEFAULT_CONS)
     cons.update({"FREQ50": 0, "MCFLAG": 0})
-    for n in PERC1_CON_ORDER:
+    for n in PERC1_CON_NAMES:
         if n in b:
             cons[n] = b[n]
     cons.update(SAMPLE_EXTRA)

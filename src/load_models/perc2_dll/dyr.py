@@ -13,7 +13,7 @@ the only thing that tells the two records apart.
 from __future__ import annotations
 
 from ..base import format_con, get_record_scope, validate_load_id
-from ..perc1_dll.dyr import parse_perc1_records
+from ..perc1_dll.dyr import parse_perc1_dll_records
 from .cons import (
     CON_NAMES,
     CON_ONLY_NAMES,
@@ -27,7 +27,7 @@ N_CON = 179
 HEADER = (12, 2, N_CON, 33, 250, 0)  # model type, NICON, NCON, NSTATE, NVAR, reserved; IT goes after the 12
 
 
-def build_perc2_dll_dyr_block(number, load_id, cons, scope="bus", *, description=None) -> str:
+def build_perc2_dll_record(number, load_id, cons, scope="bus", *, description=None) -> str:
     """One PERC2 v2.3 record: the PERC1 DLL's row groups plus the three v2.3 rows, header `12 IT 2 179 33 250 0`, the
     two ICONs on their own line. Raises ValueError for values `validate_cons` marks as errors."""
     validate_load_id(load_id)
@@ -61,7 +61,7 @@ def parse_perc2_dll_records(dyr_text: str) -> list[dict]:
     """Every PERC** record with the v2.3 header (179 CONs) in `dyr_text`, in file order: scope, number, load_id,
     placeholder, cons (flags + 179 CONs), error, position. 173-CON (PERC1 DLL) records are left out."""
     out = []
-    for rec in parse_perc1_records(dyr_text):
+    for rec in parse_perc1_dll_records(dyr_text):
         if rec.get("n_con") != N_CON:
             continue  # a PERC1 DLL (173-CON) record, or a header too broken to read
         r = dict(rec)
@@ -73,7 +73,7 @@ def parse_perc2_dll_records(dyr_text: str) -> list[dict]:
 
 def is_perc2_dll_record(dyr_text: str) -> bool:
     """True when `dyr_text` holds a PERC** record whose header gives 179 CONs (the v2.3 layout)."""
-    return any(r.get("n_con") == N_CON for r in parse_perc1_records(dyr_text))
+    return any(r.get("n_con") == N_CON for r in parse_perc1_dll_records(dyr_text))
 
 
 def parse_perc2_dll_record(dyr_text: str) -> dict:
@@ -90,5 +90,5 @@ def parse_perc2_dll_record(dyr_text: str) -> dict:
     return {n: cons[n] for n in CON_NAMES}
 
 
-__all__ = ["CON_ONLY_NAMES", "build_perc2_dll_dyr_block", "is_perc2_dll_record", "parse_perc2_dll_record",
+__all__ = ["CON_ONLY_NAMES", "build_perc2_dll_record", "is_perc2_dll_record", "parse_perc2_dll_record",
            "parse_perc2_dll_records"]

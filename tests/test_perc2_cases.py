@@ -20,10 +20,10 @@ from export.dyr import build_dyr_text
 from export.report import build_html_report
 from load_models import get_load_model
 from load_models.base import RECORD_SCOPES
-from load_models.perc1_dll.dyr import build_perc1_dyr_block
+from load_models.perc1_dll.dyr import build_perc1_dll_record
 from load_models.perc2_standard.cons import CON_NAMES, ICON_NAMES
 from load_models.perc2_standard.dyr import (
-    build_perc2_standard_dyr_block,
+    build_perc2_standard_record,
     parse_perc2_standard_records,
 )
 from presets.ridethrough import RIDE_THROUGH_PRESETS
@@ -95,7 +95,7 @@ def test_ui_state_round_trip_keeps_perc2_and_its_cons(cli_runner, tmp_path):
 @pytest.mark.parametrize("scope", list(RECORD_SCOPES))
 def test_perc2_record_round_trips_through_import_for_every_scope(scope):
     number = 0 if scope == "all" else 9
-    imported = import_record(build_perc2_standard_dyr_block(number, "P2", P2_CONS, scope=scope))
+    imported = import_record(build_perc2_standard_record(number, "P2", P2_CONS, scope=scope))
     assert imported.model_id == "perc2_standard" and imported.ref.scope == scope and imported.ref.load_id == "P2"
     assert list(imported.cons) == list(CON_NAMES)
     for name in CON_NAMES:
@@ -104,8 +104,8 @@ def test_perc2_record_round_trips_through_import_for_every_scope(scope):
 
 
 def test_a_file_mixing_dll_and_perc2_records_lists_both():
-    text = "\n".join([build_perc1_dyr_block(1, "1", get_load_model("perc1_dll").default_cons),
-                      build_perc2_standard_dyr_block(2, "2", P2_CONS)])
+    text = "\n".join([build_perc1_dll_record(1, "1", get_load_model("perc1_dll").default_cons),
+                      build_perc2_standard_record(2, "2", P2_CONS)])
     refs = list_records(text)
     assert [r.model_id for r in refs] == ["perc1_dll", "perc2_standard"]
     assert import_record(text, refs[1]).model_id == "perc2_standard"

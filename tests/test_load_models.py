@@ -6,6 +6,7 @@ A newly added model is picked up here automatically through
 internally consistent and round-trips through `.dyr` export.
 """
 
+import importlib
 import json
 
 import pytest
@@ -97,6 +98,36 @@ def test_cons_for_preset_covers_every_con(model):
     for preset in RIDE_THROUGH_PRESETS.values():
         cons = model.cons_for_preset(preset, "it")
         assert set(cons) == set(model.con_names), preset.id
+
+
+# --- Package layout: every built-in model ------------------------------------
+
+
+@pytest.mark.parametrize("model", list(LOAD_MODELS.values()), ids=lambda m: m.id)
+def test_builtin_model_follows_the_package_layout(model):
+    """Each built-in model's MODEL is wired from the same module names as every other one
+    (docs/developer/ADDING_A_LOAD_MODEL.md, "Package layout")."""
+    package = f"load_models.{model.id}"
+    cons, dyr = importlib.import_module(f"{package}.cons"), importlib.import_module(f"{package}.dyr")
+    assert model.con_names is cons.CON_NAMES and isinstance(cons.CON_NAMES, tuple)
+    assert model.default_cons is cons.DEFAULT_CONS
+    assert model.display_fields is cons.DISPLAY_FIELDS and isinstance(cons.DISPLAY_FIELDS, tuple)
+    assert model.build_dyr_record is getattr(dyr, f"build_{model.id}_record")
+    if model.parse_dyr_record:
+        assert model.parse_dyr_record is getattr(dyr, f"parse_{model.id}_record")
+        assert callable(getattr(dyr, f"parse_{model.id}_records"))
+    if model.matches_dyr:
+        assert model.matches_dyr is getattr(dyr, f"is_{model.id}_record")
+    if model.simulate:
+        simulation = importlib.import_module(f"{package}.simulation")
+        assert model.simulate is getattr(simulation, f"simulate_{model.id}_response")
+    if model.simulate_frequency:
+        assert model.simulate_frequency is getattr(simulation, f"simulate_{model.id}_frequency_response")
+    if model.cons_for_preset:
+        presets = importlib.import_module(f"{package}.presets")
+        assert model.cons_for_preset is presets.cons_for_preset
+        assert callable(presets.preset_gaps)
+    assert "MODEL" in importlib.import_module(package).__all__
 
 
 # --- Registry ----------------------------------------------------------------

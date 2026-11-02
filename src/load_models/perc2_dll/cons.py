@@ -16,19 +16,17 @@ import math
 from dataclasses import dataclass
 
 from ..common import flag_on
-from ..perc1_dll.cons import (
-    PERC1_CON_ORDER,
-    PERC1_DEFAULT_CONS,
-    PERC1_DISPLAY_FIELDS,
-    PERC1_DYR_LAYOUT,
-)
+from ..perc1_dll.cons import CON_NAMES as PERC1_CON_NAMES
+from ..perc1_dll.cons import DEFAULT_CONS as PERC1_DEFAULT_CONS
+from ..perc1_dll.cons import DISPLAY_FIELDS as PERC1_DISPLAY_FIELDS
+from ..perc1_dll.cons import DYR_LAYOUT as PERC1_DYR_LAYOUT
 
 # ICON(M) = 0 for a 60 Hz system, 1 for 50 Hz; ICON(M+1) = 1 enables momentary cessation (Option 2).
 ICON_NAMES = ("FREQ50", "MCFLAG")
 V2P3_LAYOUT_EXTRA = [["TAQ", "TBQ"], ["RAMPAMC", "RAMPUAMC"], ["VLRCMC", "VURCMC"]]
 EXTRA_CONS = tuple(n for row in V2P3_LAYOUT_EXTRA for n in row)
 DYR_LAYOUT = [*PERC1_DYR_LAYOUT, *V2P3_LAYOUT_EXTRA]
-CON_ONLY_NAMES = tuple(PERC1_CON_ORDER) + EXTRA_CONS
+CON_ONLY_NAMES = PERC1_CON_NAMES + EXTRA_CONS
 assert len(CON_ONLY_NAMES) == 179 and len(set(CON_ONLY_NAMES)) == 179
 CON_NAMES = ICON_NAMES + CON_ONLY_NAMES
 ZIP_FIELDS = {"NPA", "NQA"}
@@ -56,7 +54,7 @@ def _build_defaults() -> dict:
     PERC1 DLL does not, so those two are divided by LFM here to keep the same ramp in seconds."""
     p1 = _perc1_defaults()
     out = {"FREQ50": 0, "MCFLAG": 0}
-    out.update({n: p1[n] for n in PERC1_CON_ORDER})
+    out.update({n: p1[n] for n in PERC1_CON_NAMES})
     out.update(SAMPLE_EXTRA)
     lfm = effective_lfm(out)
     for n in RAMP_CONS:

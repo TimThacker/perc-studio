@@ -190,11 +190,11 @@ def test_status_and_recovery_panel_report_a_block_that_stays_tripped():
     """ERCOT's VRPA = 1.00: after a sag, the block stays tripped at a 1.00 pu
     recovery. The status line and recovery strip must say so, not show a
     reconnect."""
-    from load_models.perc1_dll.simulation import simulate_perc1_response
+    from load_models.perc1_dll.simulation import simulate_perc1_dll_response
     from preview.perc1_dll import event_status
 
     params = dict(RIDE_THROUGH_PRESETS["ercot_nogrr282"].it_bundle)
-    verdict, _color, detail = event_status(simulate_perc1_response(params, 0.5, 0.3))
+    verdict, _color, detail = event_status(simulate_perc1_dll_response(params, 0.5, 0.3))
     html = build_recovery_panel_html(params, "IT/UPS block", fault_duration_s=0.5, fault_voltage_pu=0.3)
 
     assert verdict == "TRIPS"

@@ -50,7 +50,7 @@ def _main_record(number, load_id, scope, fractions: dict[int, float]) -> str:
             f"{' '.join(format_value(f) for f in frac)} /")
 
 
-def build_perc1_standard_dyr_block(number, load_id, cons, scope="bus", *, load_fraction=1.0, component=1,
+def build_perc1_standard_record(number, load_id, cons, scope="bus", *, load_fraction=1.0, component=1,
                                    description="PERC1 load") -> str:
     """The complete record set for one load: the main component, the PERC
     component and - only when `load_fraction` < 1 - a static component for the

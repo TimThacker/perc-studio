@@ -42,7 +42,7 @@ def _run_probes(runner):
 
 def test_mock_runner_reproduces_the_psse_confirmed_multistage_finding():
     """Always runs (no real PsseRunner needed): since reporting.
-    simulate_perc1_response now evaluates all 4 Option-3 stages the same way
+    simulate_perc1_dll_response now evaluates all 4 Option-3 stages the same way
     the real DLL does, MockPsseRunner - which delegates to it - independently
     reproduces the exact conclusion the real PSS/E validation reached
     on these exact fixtures: stages_live is True.

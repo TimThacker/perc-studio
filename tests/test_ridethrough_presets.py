@@ -1,4 +1,4 @@
-from load_models.perc1_dll.cons import PERC1_CON_ORDER
+from load_models.perc1_dll.cons import CON_NAMES as PERC1_CON_NAMES
 from presets.ridethrough import (
     RIDE_THROUGH_PRESETS,
     collapsed_overvoltage_point,
@@ -10,7 +10,7 @@ from presets.ridethrough import (
 def test_ridethrough_preset_bundles_cover_every_con():
     for preset in RIDE_THROUGH_PRESETS.values():
         for bundle in (preset.it_bundle, preset.vfd_bundle):
-            missing = [name for name in PERC1_CON_ORDER if name not in bundle]
+            missing = [name for name in PERC1_CON_NAMES if name not in bundle]
             assert not missing, f"{preset.id} is missing CONs: {missing}"
 
 
@@ -116,7 +116,7 @@ def test_frequency_tables_are_encoded_into_the_single_trip_point():
     are NOT USED). It arms at the continuous band's edge with the innermost
     row's duration - PRC-029-1: below 58.8 Hz / above 61.2 Hz for 299 s - and
     reconnects at that same edge. Stages 2-4 keep the vendor's values."""
-    from load_models.perc1_dll.cons import PERC1_FIXED_DEFAULTS
+    from load_models.perc1_dll.cons import FIXED_DEFAULTS as PERC1_FIXED_DEFAULTS
 
     bundle = RIDE_THROUGH_PRESETS["nerc_prc029"].it_bundle
 
@@ -127,7 +127,7 @@ def test_frequency_tables_are_encoded_into_the_single_trip_point():
 
 
 def test_presets_without_a_frequency_table_keep_vendor_frequency_defaults():
-    from load_models.perc1_dll.cons import PERC1_FIXED_DEFAULTS
+    from load_models.perc1_dll.cons import FIXED_DEFAULTS as PERC1_FIXED_DEFAULTS
 
     with_table = {pid for pid, p in RIDE_THROUGH_PRESETS.items() if p.frequency_ride_through}
     assert with_table == {"pjm_lcl", "nerc_prc029"}

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from ..base import LoadModel
 from .cons import CON_NAMES, DEFAULT_CONS, DISPLAY_FIELDS, validate_cons
-from .dyr import build_perc2_dll_dyr_block, is_perc2_dll_record, parse_perc2_dll_record
+from .dyr import build_perc2_dll_record, is_perc2_dll_record, parse_perc2_dll_record
 from .presets import cons_for_preset, preset_gaps
 from .simulation import (
     simulate_perc2_dll_frequency_response,
@@ -28,17 +28,17 @@ MODEL = LoadModel(
         "(179 CONs). The voltage reconnect ramps (RAMPA, RAMPUA) last their CON times LFM."
     ),
     dyr_model_name="PERCBL",
+    dyr_model_aliases=("PERCOW", "PERCZN", "PERCAR", "PERCAL"),
+    supports_record_scopes=True,
+    matches_dyr=is_perc2_dll_record,
     con_names=CON_NAMES,
     default_cons=DEFAULT_CONS,
     display_fields=DISPLAY_FIELDS,
-    build_dyr_record=build_perc2_dll_dyr_block,
+    build_dyr_record=build_perc2_dll_record,
     parse_dyr_record=parse_perc2_dll_record,
     simulate=simulate_perc2_dll_response,
     simulate_frequency=simulate_perc2_dll_frequency_response,
     cons_for_preset=cons_for_preset,
-    dyr_model_aliases=("PERCOW", "PERCZN", "PERCAR", "PERCAL"),
-    supports_record_scopes=True,
-    matches_dyr=is_perc2_dll_record,
 )
 
 __all__ = ["MODEL", "preset_gaps", "validate_cons"]

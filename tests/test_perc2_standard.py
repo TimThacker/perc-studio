@@ -18,7 +18,7 @@ from load_models.perc2_standard.cons import (
     post_fault_peak_pu,
 )
 from load_models.perc2_standard.dyr import (
-    build_perc2_standard_dyr_block,
+    build_perc2_standard_record,
     parse_perc2_standard_header,
     parse_perc2_standard_record,
     parse_perc2_standard_records,
@@ -59,7 +59,7 @@ def test_default_cons_raise_no_validation_issues():
 # --- the .dyr record -----------------------------------------------------------------------------------------------------
 
 def test_record_has_the_documented_header_and_flags_before_the_cons():
-    main, perc = _record_lines(build_perc2_standard_dyr_block(101, "1", DEFAULT_CONS))[:2]
+    main, perc = _record_lines(build_perc2_standard_record(101, "1", DEFAULT_CONS))[:2]
     assert main.startswith("101 'MAINBL10' '1' 1 0 0 0 0 0 0 0 0 0  1 0 0 0 0 0 0 0 0 0 /")
     assert perc.startswith("101 'USRLODC' '1' 'PERCBL2U' 230 1 6 57 8 44 16 1 'PERC2 load' 1 0 0 0 0 0")
 
@@ -67,7 +67,7 @@ def test_record_has_the_documented_header_and_flags_before_the_cons():
 @pytest.mark.parametrize("scope", list(RECORD_SCOPES))
 def test_every_scope_names_its_model_and_it(scope):
     number = 0 if scope == "all" else 7
-    text = build_perc2_standard_dyr_block(number, "1", DEFAULT_CONS, scope=scope)
+    text = build_perc2_standard_record(number, "1", DEFAULT_CONS, scope=scope)
     sc = RECORD_SCOPES[scope]
     assert f"'PERC{sc.suffix}2U' 230 {sc.it} 6 57 8 44 16" in text and f"'MAIN{sc.suffix}10'" in text
     assert parse_perc2_standard_header(text)["scope"] == scope
@@ -76,20 +76,20 @@ def test_every_scope_names_its_model_and_it(scope):
 
 def test_record_round_trips_with_integer_flags():
     cons = MODEL.cons_for_preset(RIDE_THROUGH_PRESETS["ercot_nogrr282"], "it")
-    parsed = parse_perc2_standard_record(build_perc2_standard_dyr_block(101, "A1", cons))
+    parsed = parse_perc2_standard_record(build_perc2_standard_record(101, "A1", cons))
     assert parsed == pytest.approx(cons)
     assert all(isinstance(parsed[n], int) for n in ICON_NAMES)
 
 
 def test_partial_load_adds_a_static_remainder_and_records_parse_with_their_fraction():
-    text = build_perc2_standard_dyr_block(5, "1", DEFAULT_CONS, load_fraction=0.3)
+    text = build_perc2_standard_record(5, "1", DEFAULT_CONS, load_fraction=0.3)
     assert "'LSTCBL'" in text
     [rec] = parse_perc2_standard_records(text)
     assert rec["load_fraction"] == pytest.approx(0.3) and rec["error"] is None
 
 
 def test_wrong_value_count_is_reported_not_parsed():
-    good = build_perc2_standard_dyr_block(101, "1", DEFAULT_CONS)
+    good = build_perc2_standard_record(101, "1", DEFAULT_CONS)
     bad = good.replace(" 100 /", " /", 1)
     assert parse_perc2_standard_records(bad)[0]["error"]
     with pytest.raises(ValueError):
@@ -99,9 +99,9 @@ def test_wrong_value_count_is_reported_not_parsed():
 def test_values_psse_would_turn_into_nonsense_are_refused():
     for bad in ({"Imax": 0.0}, {"Ipmax": 0.0, "Ipmin": 1.0}, {"VHcease": 0.9}, {"FLflag": 1, "FLC1": 60.5}):
         with pytest.raises(ValueError):
-            build_perc2_standard_dyr_block(101, "1", {**DEFAULT_CONS, **bad})
+            build_perc2_standard_record(101, "1", {**DEFAULT_CONS, **bad})
     with pytest.raises(ValueError):
-        build_perc2_standard_dyr_block(101, "ABC", DEFAULT_CONS)
+        build_perc2_standard_record(101, "ABC", DEFAULT_CONS)
 
 
 # --- validate_cons: what PSS/E 36.7.1 does with each value ------------------------------------------------------------

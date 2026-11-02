@@ -38,7 +38,7 @@ def format_flag(value) -> str:
     return str(round(float(value)))
 
 
-def build_perc2_standard_dyr_block(number, load_id, cons, scope="bus", *, load_fraction=1.0, component=1,
+def build_perc2_standard_record(number, load_id, cons, scope="bus", *, load_fraction=1.0, component=1,
                                    description="PERC2 load") -> str:
     """The complete record set for one load: the main component, the PERC2 component and - only when
     `load_fraction` < 1 - a static component for the rest. `number` is the records' first field
@@ -143,5 +143,5 @@ def parse_perc2_standard_records(dyr_text: str) -> list[dict]:
     return records
 
 
-__all__ = ["CON_NAMES", "build_perc2_standard_dyr_block", "parse_perc2_standard_header", "parse_perc2_standard_record",
+__all__ = ["CON_NAMES", "build_perc2_standard_record", "parse_perc2_standard_header", "parse_perc2_standard_record",
            "parse_perc2_standard_records", "perc2_model_name"]

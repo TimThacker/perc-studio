@@ -209,10 +209,11 @@ and what the response pages share is `preview/style.py` and `preview/frame.py`.
     `model_id`, so **adding a model means adding one subpackage and one
     registry line** - see [ADDING_A_LOAD_MODEL.md](ADDING_A_LOAD_MODEL.md).
   - `perc1_dll/` - the engineering core for PERC1: `cons.py` (the 173-CON
-    layout, vendor defaults, `PERC1_DEFAULT_CONS`, display fields,
+    layout, vendor defaults, `DEFAULT_CONS`, display fields,
     `voltage_stage_cons`, `ZIP_EXPONENT_MAP`), `dyr.py` (the `PERCBL` writer and its
-    inverse parser), and `simulation.py` (`simulate_perc1_response` and
-    `simulate_perc1_frequency_response`, the analytic voltage- and
+    inverse parser), `presets.py` (a preset's PERC1 bundle, carried over
+    unchanged), and `simulation.py` (`simulate_perc1_dll_response` and
+    `simulate_perc1_dll_frequency_response`, the analytic voltage- and
     frequency-event responses behind the live chart and the mock runner).
   - `perc1_standard/` - the PSS/E 36.7 built-in `PERCxx1U` model: `cons.py` (30
     CONs, `CON_SPECS` limits, `validate_cons`), `dyr.py` (the `MAINxx10` +

@@ -28,9 +28,9 @@ from app import tokens as t
 from app.resources import resource_path
 from editor.model_ui import PERC2_DLL_MODEL_ID, PERC2_MODEL_ID, uses_standard_names
 from load_models.base import NOMINAL_FREQUENCY_HZ
+from load_models.perc1_dll.cons import FIXED_DEFAULTS as PERC1_FIXED_DEFAULTS
 from load_models.perc1_dll.cons import (
     OVERFREQUENCY_TRIP_CONS,
-    PERC1_FIXED_DEFAULTS,
     UNDERFREQUENCY_TRIP_CONS,
 )
 from load_models.perc1_dll.simulation import (

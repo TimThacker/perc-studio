@@ -43,9 +43,9 @@ from ..base import (
     V_FAULT,
 )
 from .cons import (
+    FIXED_DEFAULTS,
     OVERFREQUENCY_RECONNECT_CONS,
     OVERFREQUENCY_TRIP_CONS,
-    PERC1_FIXED_DEFAULTS,
     UNDERFREQUENCY_RECONNECT_CONS,
     UNDERFREQUENCY_TRIP_CONS,
 )
@@ -68,7 +68,7 @@ _TIME_EPS = 1e-9
 def _con(p, name):
     """A CON from `p`, falling back to the vendor default for the secondary
     CONs older saved cases may not carry."""
-    return p[name] if name in p else PERC1_FIXED_DEFAULTS[name]
+    return p[name] if name in p else FIXED_DEFAULTS[name]
 
 
 class _Filtered:
@@ -407,17 +407,17 @@ def _response(p, kind, fault_duration_s, level, recovery_level):
     return response
 
 
-def simulate_perc1_response(p, fault_duration_s=FAULT_DURATION, fault_voltage_pu=V_FAULT,
+def simulate_perc1_dll_response(p, fault_duration_s=FAULT_DURATION, fault_voltage_pu=V_FAULT,
                             recovery_voltage_pu=1.0):
     """Voltage steps to `fault_voltage_pu` (a sag or a swell) at FAULT_START,
     holds for `fault_duration_s`, then returns to `recovery_voltage_pu`."""
     return _response(p, "voltage", fault_duration_s, fault_voltage_pu, recovery_voltage_pu)
 
 
-def simulate_perc1_frequency_response(p, fault_duration_s=FREQUENCY_EVENT_DURATION,
+def simulate_perc1_dll_frequency_response(p, fault_duration_s=FREQUENCY_EVENT_DURATION,
                                       fault_frequency_hz=FREQUENCY_EVENT_HZ,
                                       recovery_frequency_hz=NOMINAL_FREQUENCY_HZ):
-    """The frequency-side counterpart of simulate_perc1_response(): frequency
+    """The frequency-side counterpart of simulate_perc1_dll_response(): frequency
     steps to `fault_frequency_hz`, holds for `fault_duration_s`, then returns
     to `recovery_frequency_hz`. The DLL has ONE frequency trip point per
     direction (FUFTP1/TUFTP1, FOFTP1/TOFTP1); stages 2-4 are ignored even when
@@ -425,9 +425,9 @@ def simulate_perc1_frequency_response(p, fault_duration_s=FREQUENCY_EVENT_DURATI
     return _response(p, "frequency", fault_duration_s, fault_frequency_hz, recovery_frequency_hz)
 
 
-def simulate_perc1_event(p, event_kind, fault_duration_s, fault_voltage_pu=V_FAULT,
+def simulate_perc1_dll_event(p, event_kind, fault_duration_s, fault_voltage_pu=V_FAULT,
                          fault_frequency_hz=FREQUENCY_EVENT_HZ):
     """Dispatch to the voltage or frequency simulator by `event_kind`."""
     if event_kind == "frequency":
-        return simulate_perc1_frequency_response(p, fault_duration_s, fault_frequency_hz)
-    return simulate_perc1_response(p, fault_duration_s, fault_voltage_pu)
+        return simulate_perc1_dll_frequency_response(p, fault_duration_s, fault_frequency_hz)
+    return simulate_perc1_dll_response(p, fault_duration_s, fault_voltage_pu)

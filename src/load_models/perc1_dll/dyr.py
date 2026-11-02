@@ -1,6 +1,6 @@
 """PERC1 (DLL) .dyr record writer and its exact inverse parser.
 
-`parse_perc1_dyr_block` exists so the mock runner is exercised against the
+`parse_perc1_dll_record` exists so the mock runner is exercised against the
 exact `.dyr` text a real PSS/E run would consume, instead of a shortcut
 params dict that could silently diverge from what actually gets exported.
 """
@@ -10,16 +10,16 @@ from __future__ import annotations
 import re
 
 from ..base import RECORD_SCOPES, format_con, get_record_scope, validate_load_id
-from .cons import PERC1_CON_ORDER, PERC1_DYR_LAYOUT, PERC1_ZIP_FIELDS
+from .cons import CON_NAMES, DYR_LAYOUT, ZIP_FIELDS
 
 
-def build_perc1_dyr_block(bus_number, load_id, params, scope="bus"):
+def build_perc1_dll_record(bus_number, load_id, params, scope="bus"):
     """Build the PSS/E v34/v35 PERC1 (Power Electronic Load Model) UDM record.
 
     Matches the vendor data sheet exactly: model name 'PERC**' with ** set by
     `scope` (BL bus, OW owner, ZN zone, AR area, AL all), fixed header
     ``12, IT, 2, 173, 33, 250, 0`` with IT = 1-5 for the same scopes, 2 ICONs,
-    and CON(J) through CON(J+172) - 173 values in ``PERC1_DYR_LAYOUT`` order,
+    and CON(J) through CON(J+172) - 173 values in ``DYR_LAYOUT`` order,
     one "@!" comment row per named group exactly as the vendor's example file
     groups them. `bus_number` is the record's first field: the bus number for
     a bus-scoped record, otherwise the owner/zone/area number (0 for all) -
@@ -37,7 +37,7 @@ def build_perc1_dyr_block(bus_number, load_id, params, scope="bus"):
     lines.append("@! ICON(M) ICON(M+1)  [ICON(M)=0 for 60 Hz, 1 for 50 Hz; ICON(M+1)=1 enables momentary")
     lines.append("@! cessation (Option 2) in place of the undervoltage cease/reconnect (Option 1) used below]")
     lines.append(" 0 0")
-    for block in PERC1_DYR_LAYOUT:
+    for block in DYR_LAYOUT:
         lines.append("@! " + " ".join(block))
         lines.append(" " + " ".join(format_con(params[name]) for name in block))
     lines[-1] = lines[-1] + "/"
@@ -50,7 +50,7 @@ _HEADER_RE = re.compile(
 )
 
 
-def parse_perc1_record_scope(dyr_text: str) -> tuple[str, int]:
+def parse_perc1_dll_record_scope(dyr_text: str) -> tuple[str, int]:
     """(scope id, first-field number) of the single PERC** record in
     `dyr_text` - e.g. ("owner", 7) for `7 'USRLOD' '1' 'PERCOW' 12 2 ...`."""
     matches = [_HEADER_RE.match(line.strip()) for line in dyr_text.splitlines()]
@@ -63,10 +63,10 @@ def parse_perc1_record_scope(dyr_text: str) -> tuple[str, int]:
     return scope.id, int(matches[0].group(1))
 
 
-def parse_perc1_dyr_block(dyr_text: str, *, load_id: str | None = None) -> dict:
+def parse_perc1_dll_record(dyr_text: str, *, load_id: str | None = None) -> dict:
     """Parse the single PERCBL USRLOD record in `dyr_text` back into a CON
-    dict keyed by load_models.perc1_dll.cons.PERC1_CON_ORDER - the same 173 names
-    build_perc1_dyr_block consumes. Uses load_models.perc1_dll.cons.PERC1_DYR_LAYOUT's own block
+    dict keyed by load_models.perc1_dll.cons.CON_NAMES - the same 173 names
+    build_perc1_dll_record consumes. Uses load_models.perc1_dll.cons.DYR_LAYOUT's own block
     structure to read each value row positionally, rather than parsing the
     "@!" comment text, so it stays correct even if a comment's wording
     changes. Raises ValueError (fails loudly, never silently drops a CON) if
@@ -101,7 +101,7 @@ def parse_perc1_dyr_block(dyr_text: str, *, load_id: str | None = None) -> dict:
     j += 1  # past the ICON line
 
     params: dict = {}
-    for block in PERC1_DYR_LAYOUT:
+    for block in DYR_LAYOUT:
         while j < len(lines) and lines[j].lstrip().startswith("@!"):
             j += 1
         if j >= len(lines):
@@ -116,7 +116,7 @@ def parse_perc1_dyr_block(dyr_text: str, *, load_id: str | None = None) -> dict:
             params[name] = float(token) if "." in token else int(token)
         j += 1
 
-    missing = [name for name in PERC1_CON_ORDER if name not in params]
+    missing = [name for name in CON_NAMES if name not in params]
     if missing:
         raise ValueError(f"parsed PERCBL record is missing CONs: {missing}")
 
@@ -141,7 +141,7 @@ def strip_comments(text: str) -> str:
     return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith(("@!", "//")))
 
 
-def parse_perc1_records(dyr_text: str) -> list[dict]:
+def parse_perc1_dll_records(dyr_text: str) -> list[dict]:
     """Every PERC** USRLOD record in `dyr_text`, in file order, as dicts with scope, number, load_id, icons, cons and
     error. A malformed record is reported through its `error` (cons empty) rather than raised, so one bad record
     does not hide the others. A placeholder first field (`IBUS`) gives number 0 and is kept in `placeholder`; a
@@ -175,8 +175,8 @@ def parse_perc1_records(dyr_text: str) -> list[dict]:
             record["icons"] = tuple(int(float(t)) for t in tokens[len(_HEADER_FIELDS):len(_HEADER_FIELDS) + N_ICON])
             values = tokens[len(_HEADER_FIELDS) + N_ICON:]
             record["cons"] = {
-                name: int(float(tok)) if name in PERC1_ZIP_FIELDS else (float(tok) if "." in tok else int(tok))
-                for name, tok in zip(PERC1_CON_ORDER, values)
+                name: int(float(tok)) if name in ZIP_FIELDS else (float(tok) if "." in tok else int(tok))
+                for name, tok in zip(CON_NAMES, values)
             }
             if n_con > N_CON:
                 record["v2p3_cons"] = {name: float(tok) for name, tok in zip(V2P3_EXTRA_CONS, values[N_CON:])}
@@ -190,4 +190,4 @@ def is_perc1_dll_record(dyr_text: str) -> bool:
     """True when `dyr_text` holds a PERC** record that is not a PERC2 DLL v2.3 one (header CON count 179). Both DLLs
     register PERCBL, so the count is the only thing that tells them apart; a header too broken to read counts as
     PERC1's, so the error is reported against the older model."""
-    return any(r.get("n_con") != N_CON + len(V2P3_EXTRA_CONS) for r in parse_perc1_records(dyr_text))
+    return any(r.get("n_con") != N_CON + len(V2P3_EXTRA_CONS) for r in parse_perc1_dll_records(dyr_text))

@@ -38,7 +38,7 @@ own `DYRE FORMAT` says 173 CONs; that record loads silently and breaks momentary
 (validation finding 1.2). The app keeps the two ICONs in the CON dict as integers, `FREQ50` (ICON(M)) and `MCFLAG` (ICON(M+1)),
 like the PERC2 standard model's flags.
 
-**Telling it from a PERC1 DLL record.** Both say `PERCBL`. `perc1_dll/dyr.py`'s `parse_perc1_records` reads either
+**Telling it from a PERC1 DLL record.** Both say `PERCBL`. `perc1_dll/dyr.py`'s `parse_perc1_dll_records` reads either
 layout and sets `n_con` from the header; `is_perc1_dll_record` / `is_perc2_dll_record` test it, and both models set the
 new `LoadModel.matches_dyr` hook, which `find_model_for_dyr` checks after the name. A header too broken to read counts as
 PERC1's, so the error is reported against the older model. `.dyr` import routes the same way.
@@ -53,7 +53,7 @@ PERC1's, so the error is reported against the older model. `.dyr` import routes 
 | `RAMPAMC`, `RAMPUAMC` | ramp after a low / high cessation, in seconds (not x LFM) |
 | `VLRCMC`, `VURCMC` | a ceased load comes back after the filtered voltage has been strictly inside this band for `TBLK + TDELY` |
 
-The defaults are the PERC1 DLL's (`perc1_dll`'s `PERC1_DEFAULT_CONS`), the four cessation CONs from the vendor sample
+The defaults are the PERC1 DLL's (`perc1_dll`'s `DEFAULT_CONS`), the four cessation CONs from the vendor sample
 (1.0, 1.0, 0.9, 1.09), TAQ = TBQ = 0, MCFLAG = FREQ50 = 0, and RAMPA/RAMPUA divided by LFM so a new block ramps over the
 same seconds as a new PERC1 DLL block.
 
@@ -114,4 +114,4 @@ app exports them bypassed), the per-`run()`-call ramp speed-up (a rig effect), Q
 | RAMPA/RAMPUA x LFM (the PERC1 DLL does not scale) | divides them by LFM in defaults and presets |
 | VRPA 1.0 never reconnects | caps preset VRPA at 0.95, reports it in `preset_gaps` |
 | v36 build: high-side cessation crashes PSS/E 36.7; any TA/TB is NaN | `validate_cons(..., psse_version="36.7")` errors; the app exports TA = TB = 0 and cessation off by default |
-| No range checks in the DLL | `validate_cons` errors before export (`build_perc2_dll_dyr_block` refuses errors) |
+| No range checks in the DLL | `validate_cons` errors before export (`build_perc2_dll_record` refuses errors) |

@@ -28,7 +28,8 @@ from PySide6.QtWidgets import (
 from app.build_info import BUILD_COMMIT, __version__
 from app.config import CURENT_GREEN, ENGINEERING_TOOL_NOTICE
 from app.resources import resource_path
-from load_models.perc1_dll.cons import PERC1_CON_ORDER, PERC1_DISPLAY_FIELDS
+from load_models.perc1_dll.cons import CON_NAMES as PERC1_CON_NAMES
+from load_models.perc1_dll.cons import DISPLAY_FIELDS as PERC1_DISPLAY_FIELDS
 from presets.ridethrough import RIDE_THROUGH_PRESETS
 
 
@@ -260,7 +261,7 @@ def _about_html() -> str:
 def _documentation_html() -> str:
     core_rows = _table_rows(PERC1_DISPLAY_FIELDS[:_PERC1_CORE_FIELD_COUNT])
     secondary_rows = _table_rows(PERC1_DISPLAY_FIELDS[_PERC1_CORE_FIELD_COUNT:])
-    total_cons = len(PERC1_CON_ORDER)
+    total_cons = len(PERC1_CON_NAMES)
     th = f'style="background:{CURENT_GREEN};color:#ffffff;padding:8px 10px;text-align:left;"'
 
     return f"""

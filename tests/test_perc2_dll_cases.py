@@ -21,7 +21,7 @@ from editor.dyr_import import import_record, list_records
 from editor.model_ui import PERC2_DLL_MC_NOTE, get_ui_spec
 from editor.parameter_rows import rows_for
 from load_models import get_load_model
-from load_models.perc1_dll.dyr import build_perc1_dyr_block
+from load_models.perc1_dll.dyr import build_perc1_dll_record
 from load_models.perc2_dll.cons import (
     CON_NAMES,
     DISPLAY_FIELDS,
@@ -29,7 +29,7 @@ from load_models.perc2_dll.cons import (
     ICON_NAMES,
     RAMP_CONS,
 )
-from load_models.perc2_dll.dyr import build_perc2_dll_dyr_block, parse_perc2_dll_records
+from load_models.perc2_dll.dyr import build_perc2_dll_record, parse_perc2_dll_records
 from presets.ridethrough import RIDE_THROUGH_PRESETS
 from preview.model import Event, build_preview
 from preview.perc2_dll import (
@@ -111,8 +111,8 @@ def test_notes_show_validate_cons_issues_and_the_momentary_cessation_note():
 
 
 def test_173_con_records_import_as_perc1_dll_and_179_con_records_as_perc2_dll():
-    assert import_record(build_perc1_dyr_block(1, "1", DLL_CONS)).model_id == "perc1_dll"
-    imported = import_record(build_perc2_dll_dyr_block(2, "2", P2D_CONS))
+    assert import_record(build_perc1_dll_record(1, "1", DLL_CONS)).model_id == "perc1_dll"
+    imported = import_record(build_perc2_dll_record(2, "2", P2D_CONS))
     assert imported.model_id == "perc2_dll" and "PERC2 DLL v2.3" in imported.ref.label
     assert list(imported.cons) == list(CON_NAMES)
     for name in CON_NAMES:
@@ -121,8 +121,8 @@ def test_173_con_records_import_as_perc1_dll_and_179_con_records_as_perc2_dll():
 
 
 def test_a_file_with_both_dlls_lists_each_record_once():
-    text = "\n".join([build_perc1_dyr_block(1, "1", DLL_CONS), build_perc2_dll_dyr_block(2, "2", P2D_CONS),
-                      build_perc1_dyr_block(3, "3", DLL_CONS)])
+    text = "\n".join([build_perc1_dll_record(1, "1", DLL_CONS), build_perc2_dll_record(2, "2", P2D_CONS),
+                      build_perc1_dll_record(3, "3", DLL_CONS)])
     refs = list_records(text)
     assert [(r.model_id, r.number) for r in refs] == [("perc1_dll", 1), ("perc2_dll", 2), ("perc1_dll", 3)]
     assert import_record(text, refs[1]).model_id == "perc2_dll"
@@ -130,14 +130,14 @@ def test_a_file_with_both_dlls_lists_each_record_once():
 
 
 def test_imported_flags_are_warned_about():
-    text = build_perc2_dll_dyr_block(2, "2", {**P2D_CONS, "MCFLAG": 1, "FREQ50": 1, "FUFTP1": 48.0, "FOFTP1": 52.0})
+    text = build_perc2_dll_record(2, "2", {**P2D_CONS, "MCFLAG": 1, "FREQ50": 1, "FUFTP1": 48.0, "FOFTP1": 52.0})
     warnings = import_record(text).warnings
     assert any(w.startswith("MCFLAG (ICON(M+1)) = 1") for w in warnings)
     assert any(w.startswith("FREQ50 (ICON(M)) = 1") for w in warnings)
 
 
 def test_the_blackbox_intake_reads_the_179_con_header():
-    recs = scan_dyr(build_perc2_dll_dyr_block(101, "1", P2D_CONS))
+    recs = scan_dyr(build_perc2_dll_record(101, "1", P2D_CONS))
     assert recs[0].header == {"ic": 12, "it": 1, "ni": 2, "nc": 179, "ns": 33, "nv": 250}
     assert len(load_targets(recs)) == 1
 

@@ -9,7 +9,7 @@ import pytest
 
 from load_models import LOAD_MODELS, find_model_for_dyr, get_load_model
 from load_models.base import RECORD_SCOPES
-from load_models.perc1_dll.cons import PERC1_CON_ORDER
+from load_models.perc1_dll.cons import CON_NAMES as PERC1_CON_NAMES
 from load_models.perc2_dll import MODEL, preset_gaps, validate_cons
 from load_models.perc2_dll.cons import (
     CON_NAMES,
@@ -19,7 +19,7 @@ from load_models.perc2_dll.cons import (
     ramp_seconds,
 )
 from load_models.perc2_dll.dyr import (
-    build_perc2_dll_dyr_block,
+    build_perc2_dll_record,
     is_perc2_dll_record,
     parse_perc2_dll_record,
     parse_perc2_dll_records,
@@ -38,7 +38,7 @@ def _issues(cons, level=None, **kw):
 
 def test_two_icons_then_the_perc1_dll_cons_then_six_more():
     assert CON_NAMES[:2] == ("FREQ50", "MCFLAG")
-    assert CON_ONLY_NAMES[:173] == tuple(PERC1_CON_ORDER)
+    assert CON_ONLY_NAMES[:173] == tuple(PERC1_CON_NAMES)
     assert EXTRA_CONS == ("TAQ", "TBQ", "RAMPAMC", "RAMPUAMC", "VLRCMC", "VURCMC")
     assert len(CON_ONLY_NAMES) == 179
 
@@ -53,7 +53,7 @@ def test_defaults_raise_no_issues_and_switch_momentary_cessation_off():
 
 
 def test_header_says_179_and_the_icons_have_their_own_line():
-    text = build_perc2_dll_dyr_block(101, "1", DEFAULT_CONS)
+    text = build_perc2_dll_record(101, "1", DEFAULT_CONS)
     lines = [ln for ln in text.splitlines() if not ln.startswith("@!")]
     assert lines[0] == "101 'USRLOD' '1' 'PERCBL' 12 1 2 179 33 250 0"
     assert lines[1].split() == ["0", "0"]
@@ -63,7 +63,7 @@ def test_header_says_179_and_the_icons_have_their_own_line():
 @pytest.mark.parametrize("scope", sorted(RECORD_SCOPES))
 def test_every_scope_round_trips(scope):
     cons = {**DEFAULT_CONS, "MCFLAG": 1}
-    text = build_perc2_dll_dyr_block(7, "1", cons, scope)
+    text = build_perc2_dll_record(7, "1", cons, scope)
     got = parse_perc2_dll_record(text)
     assert all(abs(float(got[n]) - float(cons[n])) < 1e-4 for n in CON_NAMES)
     assert got["MCFLAG"] == 1 and isinstance(got["MCFLAG"], int)
@@ -72,7 +72,7 @@ def test_every_scope_round_trips(scope):
 def test_perc1_and_perc2_dll_records_are_told_apart_by_their_con_count():
     p1 = LOAD_MODELS["perc1_dll"]
     p1_text = p1.build_dyr_record(101, "1", p1.default_cons)
-    p2_text = build_perc2_dll_dyr_block(101, "1", DEFAULT_CONS)
+    p2_text = build_perc2_dll_record(101, "1", DEFAULT_CONS)
     assert find_model_for_dyr(p1_text) is p1
     assert find_model_for_dyr(p2_text) is MODEL
     assert not is_perc2_dll_record(p1_text) and is_perc2_dll_record(p2_text)

@@ -3,7 +3,7 @@
 from ..base import get_record_scope, validate_load_id
 
 
-def clod_record(bus_number, load_id, params, scope="bus"):
+def build_clod_record(bus_number, load_id, params, scope="bus"):
     """One CLOD record. Like PERC1, the model name carries the record's scope
     (CLODBL/CLODOW/CLODZN/CLODAR/CLODAL - "BL" is Bus, not "baseline")."""
     validate_load_id(load_id)

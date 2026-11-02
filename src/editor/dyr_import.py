@@ -1,7 +1,7 @@
 """Read a PSS/E `.dyr` file back into the app: which PERC1 records it holds, and the CONs of the one the user picks.
 
 The UI uses this to load an existing model into an editor block so the live preview can inspect it before any
-simulation. Nothing here needs Qt. Records are found per model (`load_models.perc1_dll.dyr.parse_perc1_records`,
+simulation. Nothing here needs Qt. Records are found per model (`load_models.perc1_dll.dyr.parse_perc1_dll_records`,
 `load_models.perc2_dll.dyr.parse_perc2_dll_records`, `load_models.perc1_standard.dyr.parse_perc1_standard_records`,
 `load_models.perc2_standard.dyr.parse_perc2_standard_records`), so a file may mix models; CLOD records are listed
 but cannot be inspected (the app has no CLOD editor). The PERC1 DLL and the PERC2 DLL v2.3 both write PERCBL; the
@@ -17,7 +17,7 @@ import re
 from dataclasses import dataclass, field
 
 from editor.model_ui import get_ui_spec
-from load_models.perc1_dll.dyr import parse_perc1_records, strip_comments
+from load_models.perc1_dll.dyr import parse_perc1_dll_records, strip_comments
 from load_models.perc1_standard.dyr import parse_perc1_standard_records
 from load_models.perc2_dll.dyr import N_CON as PERC2_DLL_N_CON
 from load_models.perc2_dll.dyr import parse_perc2_dll_records
@@ -67,7 +67,7 @@ class ImportedRecord:
 
 def _perc1_dll_records(dyr_text: str) -> list[dict]:
     """The PERC** records that are the PERC1 DLL's: a 179-CON header is the PERC2 DLL v2.3's (`perc2_dll`)."""
-    return [r for r in parse_perc1_records(dyr_text) if r.get("n_con") != PERC2_DLL_N_CON]
+    return [r for r in parse_perc1_dll_records(dyr_text) if r.get("n_con") != PERC2_DLL_N_CON]
 
 
 def _scan(dyr_text: str) -> list[tuple[RecordRef, dict, dict]]:
